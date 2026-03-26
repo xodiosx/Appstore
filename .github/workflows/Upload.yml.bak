@@ -1,0 +1,100 @@
+name: Upload XoDos Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag (e.g., 2.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ✅ Step 1: Checkout repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ✅ Step 2: Install Python and gdown
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip
+          pip install gdown
+
+      # ✅ Step 3: Create Git Tag (after checkout)
+      - name: Create Git Tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "v${{ github.event.inputs.version_tag }}"
+          git push origin "v${{ github.event.inputs.version_tag }}"
+
+      # ✅ Step 4: Download main APK file
+      - name: Download Main APK
+        run: |
+          gdown --fuzzy "https://drive.google.com/file/d/160QgPr5XNB3tvk8AqVj1KVVihEvOxwtm" \
+            -O "xodos-gimp3.tar.xz" || exit 1
+
+      # ✅ Step 5: Download additional files
+      - name: Download Additional Files
+        run: |
+          gdown --fuzzy "https://drive.google.com/uc?id=15yJEOutcm3DN0q4xMXtpPA8XHCFUNdMX" -O "xodos-blender4.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=15zN5s-3D6gmVCE3wVnxKzB7S18bLXY6e" -O "xodos-blender5.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=15zN5s-3D6gmVCE3wVnxKzB7S18bLXY6e" -O "xodos-blender.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=16-PrmE1gfBgbWNtoQmX8z1j3Oyq2tvbe" -O "xodos-clang+llvm.tar.xz" || exit 1
+          
+      # ✅ Step 6: Generate MD5 checksums for all downloaded files
+      - name: Generate MD5 Checksums
+        id: md5
+        run: |
+          echo "### File Checksums:" > checksums.txt
+          for f in xodos-blender4.tar.xz xodos_steam-lite.tar.xz; do
+            md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
+          done
+          echo "md5_list<<EOF" >> $GITHUB_ENV
+          cat checksums.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      # ✅ Step 7: Create GitHub Release and upload files
+      - name: Create GitHub Release with Files
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ github.event.inputs.version_tag }}"
+          name: "apps-full"
+          files: |
+            xodos-gimp3.tar.xz
+            xodos-blender.tar.xz
+            xodos-blender4.tar.xz
+            xodos-blender5.tar.xz
+            xodos-clang+llvm.tar.xz
+            🧩 **Native Apps for XoDos **
+
+            ### ✅ What's New
+            - 
+            - 
+
+            ### 🧾 Checksums
+            ${{ env.md5_list }}
+
+            ---
+
+            **👥 Credits**
+            python: @xodiosx🇾🇪 • @mebabo1🇰🇷 • 
+            Logos: @sabamdarif  
+
+            **💬 Support**
+            Telegram: [t.me/xodemulatorr](https://t.me/xodemulatorr)  
+            Discord: [discord.gg/d2ChVhPfnF](https://discord.gg/d2ChVhPfnF)  
+
+            
