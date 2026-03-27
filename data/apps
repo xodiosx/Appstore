@@ -19,6 +19,10 @@ ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
 MANIFEST_DIR = os.path.expanduser("~/appstore/manifests")
 STRIP_COMPONENTS = 5  # Number of leading directories to strip from the archive
 
+# Update settings
+UPDATE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/main/data/apps"
+CURRENT_SCRIPT = os.path.abspath(__file__)  # Path to this running script
+
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
 os.makedirs(MANIFEST_DIR, exist_ok=True)
 
@@ -36,11 +40,14 @@ apps = [
      "drawing and Vector graphics editor"),
     ("Chromium", "xodos-chromium.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-chromium.tar.xz",
      "Chromium internet browser"),
+     ("Firefox", "xodos-firefox.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-firefox.tar.xz",
+     "Firefox internet browser"),
+
     ("Wine Bionic", "wine-bionic.tar.xz", "https:///wine-bionic.tar.xz",
      "Wine for Bionic android environment"),
     ("Wine Glibc", "wine-glibc.tar.xz", "https:///wine-glibc.tar.xz",
      "Wine using native glibc"),
-    ("python3.13", "xodos-python3.13.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13.tar.xz",
+    ("python3.13+", "xodos-python3.13+.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13+.tar.xz",
      "Python 3.13 interpreter"),
       ("clang+llvm", "xodos-clang+llvm.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
      "clang and llvm libraries"),
@@ -76,6 +83,58 @@ def get_remote_file_size(url):
     except Exception:
         pass
     return "Unknown"
+
+# ========== Update Check ==========
+def check_for_updates():
+    """Fetch remote script content and compare with current file.
+    Returns (update_available, remote_content) or (False, None) on error.
+    """
+    try:
+        req = urllib.request.Request(UPDATE_URL, method='GET')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            remote_content = resp.read().decode('utf-8')
+    except Exception as e:
+        print(f"Update check failed: {e}")
+        return False, None
+
+    # Read current script content
+    try:
+        with open(CURRENT_SCRIPT, 'r', encoding='utf-8') as f:
+            current_content = f.read()
+    except Exception as e:
+        print(f"Could not read current script: {e}")
+        return False, None
+
+    # Compare
+    if remote_content != current_content:
+        return True, remote_content
+    else:
+        return False, None
+
+def apply_update(remote_content, parent_window):
+    """Download new script to a temporary file and replace current one."""
+    # Write to a temporary file in the same directory
+    script_dir = os.path.dirname(CURRENT_SCRIPT)
+    temp_path = os.path.join(script_dir, "appstore_update.tmp")
+    try:
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            f.write(remote_content)
+        # Replace current script with temp file
+        os.replace(temp_path, CURRENT_SCRIPT)
+        # Make sure it's executable
+        os.chmod(CURRENT_SCRIPT, 0o755)
+    except Exception as e:
+        dialog = Gtk.MessageDialog(
+            transient_for=parent_window,
+            flags=0,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=f"Update failed: {e}"
+        )
+        dialog.run()
+        dialog.destroy()
+        return False
+    return True
 
 # ========== Core Functions ==========
 def download_file(url, dest, progress_callback):
@@ -137,10 +196,6 @@ def refresh_xfce():
     if os.path.isdir(icons_dir):
         subprocess.run(['gtk-update-icon-cache', '-f', icons_dir],
                        stderr=subprocess.DEVNULL, check=False)
-    # Reload Xfce4 panel (optional – uncomment if needed)
-    # subprocess.run(['xfce4-panel', '-r'], stderr=subprocess.DEVNULL, check=False)
-    # Reload desktop (optional)
-    # subprocess.run(['xfdesktop', '--reload'], stderr=subprocess.DEVNULL, check=False)
 
 def install_app(app_name, archive_name, url, progress_callback, done_callback):
     archive_path = os.path.join(ARCHIVE_DIR, archive_name)
@@ -388,6 +443,53 @@ class AppStoreApplication(Gtk.Application):
         if not win:
             win = AppStoreWindow(self)
         win.present()
+
+        # Check for updates after window is shown (non-blocking)
+        GLib.idle_add(self._check_update_async, win)
+
+    def _check_update_async(self, parent_window):
+        def run_check():
+            update_available, remote_content = check_for_updates()
+            if update_available:
+                GLib.idle_add(self._prompt_update, parent_window, remote_content)
+        threading.Thread(target=run_check, daemon=True).start()
+
+    def _prompt_update(self, parent_window, remote_content):
+        dialog = Gtk.MessageDialog(
+            transient_for=parent_window,
+            flags=0,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="A new version of the app store is available. Update now?"
+        )
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            # Apply update
+            success = apply_update(remote_content, parent_window)
+            if success:
+                # Notify user and restart
+                restart_dialog = Gtk.MessageDialog(
+                    transient_for=parent_window,
+                    flags=0,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Update installed. The app will now restart."
+                )
+                restart_dialog.run()
+                restart_dialog.destroy()
+                # Restart the application
+                os.execv(CURRENT_SCRIPT, sys.argv)
+            else:
+                error_dialog = Gtk.MessageDialog(
+                    transient_for=parent_window,
+                    flags=0,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Update failed. See error message above."
+                )
+                error_dialog.run()
+                error_dialog.destroy()
 
 if __name__ == "__main__":
     app = AppStoreApplication()
