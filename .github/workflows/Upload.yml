@@ -48,10 +48,10 @@ jobs:
       - name: Download Additional Files
         run: |
           gdown --fuzzy "https://drive.google.com/uc?id=16DQg3DcduYNoJqN3UnCgsqcmwIAGYW27" -O "xodos-inkscape.tar.xz" || exit 1
-          #gdown --fuzzy "https://drive.google.com/uc?id=15zN5s-3D6gmVCE3wVnxKzB7S18bLXY6e" -O "xodos-blender5.tar.xz" || exit 1
-          #gdown --fuzzy "https://drive.google.com/uc?id=160slvlYpp84dUoGmf-UZiS3mNjnzzfO9" -O "xodos-blender.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=16V9Du-Or8QxLdV2kNn6kFsBkNsqsTHPv" -O "xodos-firefox.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=16YLHwcWFfNky_SsLAlbxlDIoZbloLyS-" -O "xodos-audacity.tar.xz" || exit 1
           #gdown --fuzzy "https://drive.google.com/uc?id=16-PrmE1gfBgbWNtoQmX8z1j3Oyq2tvbe" -O "xodos-clang+llvm.tar.xz" || exit 1
-          wget https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
+          wget -O cursor-arm64.deb https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
       # ✅ Step 6: Generate MD5 checksums for all downloaded files
       - name: Generate MD5 Checksums
         id: md5
@@ -73,11 +73,11 @@ jobs:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           name: "apps-full"
           files: |
-            xodos-gimp3.tar.xz
-            xodos-blender.tar.xz
-            xodos-blender4.tar.xz
-            xodos-blender5.tar.xz
-            xodos-clang+llvm.tar.xz
+            xodos-chromium.tar.xz
+            xodos-firefox.tar.xz
+            xodos-inkscape.tar.xz
+            cursor-arm64.deb
+            xodos-audacity.tar.xz
             🧩 **Native Apps for XoDos **
 
             ### ✅ What's New
