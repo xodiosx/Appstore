@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data//com.xodos/files/usr/bin/bash
 
 supported_arch="aarch64"
 package_name="zen-browser"

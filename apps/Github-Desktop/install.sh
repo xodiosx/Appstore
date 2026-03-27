@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data//com.xodos/files/usr/bin/bash
 supported_arch="aarch64,arm"
 run_cmd="github-desktop --no-sandbox"
 version="release-3.4.13-linux1"

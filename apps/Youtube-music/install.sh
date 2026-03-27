@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data//com.xodos/files/usr/bin/bash
 
 supported_arch="Invalid,choice(s).,Please,choose,from:,aarch64,arm,aarch64,arm"
 package_name="youtube-music"

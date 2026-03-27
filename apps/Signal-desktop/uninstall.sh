@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data//com.xodos/files/usr/bin/bash
 
 distro_run "
 mv /opt/Signal-Unofficial '/opt/Signal Unofficial'

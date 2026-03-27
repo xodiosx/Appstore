@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data//com.xodos/files/usr/bin/bash
 
 supported_arch="arm64"
 version="V2.3.0"
@@ -37,7 +37,7 @@ else
 fi
 
 # --- Step 4: Copy the PNG Icon to the Icons Directory ---
-# ICON_DIR="/data/data/com.termux/files/usr/share/icons/hicolor/256x256/apps/"
+# ICON_DIR="/data/data//com.xodos/files/usr/share/icons/hicolor/256x256/apps/"
 
 # echo "Ensuring icon directory exists at $ICON_DIR..."
 # mkdir -p "$ICON_DIR"
