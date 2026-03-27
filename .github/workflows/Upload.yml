@@ -57,7 +57,7 @@ jobs:
         id: md5
         run: |
           echo "### File Checksums:" > checksums.txt
-          for f in xodos-blender4.tar.xz xodos_steam-lite.tar.xz; do
+          for f in xodos-chromium.tar.xz xodos-firefox.tar.xz xodos-inkscape.tar.xz cursor-arm64.deb xodos-audacity.tar.xzz; do
             md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
           done
           echo "md5_list<<EOF" >> $GITHUB_ENV
