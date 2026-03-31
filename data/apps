@@ -13,13 +13,18 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio
 
-# 1.0.7.2
 # ========== Configuration ==========
 PREFIX = "/data/data/com.xodos/files/usr"
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
 MANIFEST_DIR = os.path.expanduser("~/appstore/manifests")
 STRIP_COMPONENTS = 5  # Number of leading directories to strip from the archive
 TMP_EXTRACT = os.path.join(ARCHIVE_DIR, "tmp_extract")  # Temporary extraction folder
+#v1.0.7.3
+# Protected system directories (never delete files directly inside these)
+PROTECTED_DIRS = [
+    os.path.join(PREFIX, "lib"),
+    os.path.join(PREFIX, "lib64"),
+]
 
 # Update settings
 UPDATE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/main/data/apps"
@@ -65,6 +70,11 @@ deps = {
 # Deb dependencies: app name -> list of (deb_url, deb_filename)
 DEB_DEPS = {
     "Blender": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/libheif_aarch64.deb", "libheif_aarch64.deb")]
+}
+
+# Post‑removal recovery packages: app name -> list of (deb_url, deb_filename)
+POST_REMOVE_DEBS = {
+    "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/gtk3_aarch64.deb", "gtk3_aarch64.deb")]
 }
 
 # ========== Helper Functions ==========
@@ -309,6 +319,23 @@ def fix_bin_symlinks():
                     # Optional: print for debugging
                     print(f"Fixed {path} -> {new_target}")
 
+def is_protected(file_path, app_name):
+    """
+    Check if a file is in a protected system directory and not inside an app‑specific subfolder.
+    Returns True if removal should be skipped.
+    """
+    for protected in PROTECTED_DIRS:
+        if file_path.startswith(protected):
+            # Allow removal only if the file is inside a subdirectory named after the app
+            app_lower = app_name.lower()
+            # Check if the path contains e.g. /lib/gimp/ or /lib64/gimp/
+            rest = file_path[len(protected):]
+            if rest.startswith('/' + app_lower + '/'):
+                return False  # Not protected, it's inside app's own folder
+            else:
+                return True  # Protected: directly inside lib/ or inside other subdirs
+    return False
+
 def install_app(app_name, archive_name, url, progress_callback, done_callback):
     archive_path = os.path.join(ARCHIVE_DIR, archive_name)
     try:
@@ -334,9 +361,14 @@ def remove_app(app_name, done_callback):
     try:
         with open(manifest) as f:
             files = f.read().splitlines()
-        # Remove only files and symlinks (no directories)
+        # Remove only files that are not in protected system directories
         for file in files:
-            if file.startswith(PREFIX) and (os.path.isfile(file) or os.path.islink(file)):
+            if not file.startswith(PREFIX):
+                continue
+            if is_protected(file, app_name):
+                # Skip protected file
+                continue
+            if os.path.isfile(file) or os.path.islink(file):
                 try:
                     os.remove(file)
                 except Exception:
@@ -345,6 +377,18 @@ def remove_app(app_name, done_callback):
         GLib.idle_add(done_callback, True, f"{app_name} Removed 🧹")
     except Exception as e:
         GLib.idle_add(done_callback, False, str(e))
+
+def post_remove_recovery(app_name, progress_callback, done_callback):
+    """After removal, install recovery packages (e.g., GTK3) if needed."""
+    if app_name in POST_REMOVE_DEBS:
+        try:
+            for deb_url, deb_filename in POST_REMOVE_DEBS[app_name]:
+                install_deb_dependency(deb_url, deb_filename, progress_callback)
+            GLib.idle_add(done_callback, True, f"Recovery packages installed for {app_name}")
+        except Exception as e:
+            GLib.idle_add(done_callback, False, str(e))
+    else:
+        GLib.idle_add(done_callback, True, None)
 
 # ========== GTK UI ==========
 class AppStoreWindow(Gtk.ApplicationWindow):
@@ -504,7 +548,13 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.status_label.set_text(f"Removing {name}...")
         self.progress.set_fraction(0.0)
 
-        thread = threading.Thread(target=remove_app, args=(name, self._on_operation_done))
+        def remove_and_recover():
+            # First remove the app
+            remove_app(name, lambda success, msg: None)  # We'll handle in a nested way
+            # Then run recovery
+            post_remove_recovery(name, self._update_progress, self._on_operation_done)
+
+        thread = threading.Thread(target=remove_and_recover)
         thread.daemon = True
         thread.start()
 
