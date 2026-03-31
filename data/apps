@@ -13,6 +13,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio
 
+# 1.0.7.2
 # ========== Configuration ==========
 PREFIX = "/data/data/com.xodos/files/usr"
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
@@ -171,7 +172,7 @@ def validate_archive(archive_path):
 def extract_archive(archive_path, app_name, progress_callback):
     """
     Extract archive to a temporary directory, then move files atomically into PREFIX.
-    Only files that did not exist before are recorded in the manifest.
+    Only files that did NOT already exist are recorded in the manifest.
     """
     manifest = get_manifest(app_name)
     os.makedirs(PREFIX, exist_ok=True)
@@ -179,14 +180,7 @@ def extract_archive(archive_path, app_name, progress_callback):
     # Validate archive structure
     validate_archive(archive_path)
 
-    # Step 1: collect existing files before extraction
-    existing_files = set()
-    for root, _, files in os.walk(PREFIX):
-        for f in files:
-            full = os.path.join(root, f)
-            existing_files.add(os.path.normpath(full))
-
-    # Step 2: get total number of files in archive (for progress)
+    # Step 1: get total number of files in archive (for progress)
     try:
         list_cmd = ["tar", "-tf", archive_path]
         result = subprocess.run(list_cmd, capture_output=True, text=True, check=True)
@@ -194,12 +188,12 @@ def extract_archive(archive_path, app_name, progress_callback):
     except subprocess.CalledProcessError as e:
         raise Exception(f"Failed to list archive contents: {e.stderr}")
 
-    # Step 3: prepare temporary extraction directory
+    # Step 2: prepare temporary extraction directory
     if os.path.exists(TMP_EXTRACT):
         shutil.rmtree(TMP_EXTRACT)
     os.makedirs(TMP_EXTRACT, exist_ok=True)
 
-    # Step 4: extract archive to temporary directory (without strip-components)
+    # Step 3: extract archive to temporary directory (without strip-components)
     try:
         subprocess.run(
             ["tar", "-xJf", archive_path, "-C", TMP_EXTRACT],
@@ -213,11 +207,10 @@ def extract_archive(archive_path, app_name, progress_callback):
     if not os.path.isdir(src_root):
         raise Exception("Extracted archive does not have expected structure: 'data/data/com.xodos/files/usr' not found.")
 
-    # Step 5: walk the extracted tree, move files, and record newly created files
+    # Step 4: walk the extracted tree, move files, and record newly created files
     extracted_paths = []
     count = 0
-    # We need to know total number of files (not directories) for accurate progress.
-    # We'll count them first by walking src_root.
+    # Count total files (not directories) for progress
     total_files = 0
     for root, _, files in os.walk(src_root):
         for f in files:
@@ -229,20 +222,25 @@ def extract_archive(archive_path, app_name, progress_callback):
             # Compute relative path from src_root
             rel = os.path.relpath(src, src_root)
             dest = os.path.join(PREFIX, rel)
+
             # Ensure parent directory exists
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-            # Move atomically
+
+            # Check if destination already exists BEFORE moving
+            file_was_new = not os.path.exists(dest)
+
+            # Move atomically (overwrites if exists)
             os.replace(src, dest)
 
-            # Record only if it did NOT exist before extraction
-            if dest not in existing_files:
+            # Record ONLY if it did NOT exist before (i.e., this is a new file)
+            if file_was_new:
                 extracted_paths.append(dest)
 
             count += 1
             percent = (count / total_files) * 100 if total_files > 0 else 0
             GLib.idle_add(progress_callback, percent, f"Installing... {int(percent)}%")
 
-    # Step 6: clean up temporary directory
+    # Step 5: clean up temporary directory
     shutil.rmtree(TMP_EXTRACT)
 
     # Write manifest (only newly created files)
