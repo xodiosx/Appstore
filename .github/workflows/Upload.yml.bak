@@ -41,23 +41,23 @@ jobs:
       # ✅ Step 4: Download main APK file
       - name: Download Main APK
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=16DdYMIrRsQFKc_OMARN8JlZu-LNQ6iGJ" \
-            -O "xodos-chromium.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=1Dsg3YxgAh2M8hgIQR31f6jqbtSXAU1GV" \
+            -O "wine-glibc.tar.xz" || exit 1
 
       # ✅ Step 5: Download additional files
       - name: Download Additional Files
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=16DQg3DcduYNoJqN3UnCgsqcmwIAGYW27" -O "xodos-inkscape.tar.xz" || exit 1
-          gdown --fuzzy "https://drive.google.com/uc?id=16V9Du-Or8QxLdV2kNn6kFsBkNsqsTHPv" -O "xodos-firefox.tar.xz" || exit 1
-          gdown --fuzzy "https://drive.google.com/uc?id=16YLHwcWFfNky_SsLAlbxlDIoZbloLyS-" -O "xodos-audacity.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=1Dsg3YxgAh2M8hgIQR31f6jqbtSXAU1GV" -O "wine-bionic.tar.xz" || exit 1
+          #gdown --fuzzy "https://drive.google.com/uc?id=16V9Du-Or8QxLdV2kNn6kFsBkNsqsTHPv" -O "xodos-firefox.tar.xz" || exit 1
+          #gdown --fuzzy "https://drive.google.com/uc?id=16YLHwcWFfNky_SsLAlbxlDIoZbloLyS-" -O "xodos-audacity.tar.xz" || exit 1
           #gdown --fuzzy "https://drive.google.com/uc?id=16-PrmE1gfBgbWNtoQmX8z1j3Oyq2tvbe" -O "xodos-clang+llvm.tar.xz" || exit 1
-          wget -O cursor-arm64.deb https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
+          #wget -O cursor-arm64.deb https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
       # ✅ Step 6: Generate MD5 checksums for all downloaded files
       - name: Generate MD5 Checksums
         id: md5
         run: |
           echo "### File Checksums:" > checksums.txt
-          for f in xodos-chromium.tar.xz xodos-firefox.tar.xz xodos-inkscape.tar.xz cursor-arm64.deb xodos-audacity.tar.xzz; do
+          for f in wine-bionic.tar.xz wine-glibc.tar.xz; do
             md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
           done
           echo "md5_list<<EOF" >> $GITHUB_ENV
@@ -73,11 +73,9 @@ jobs:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           name: "apps-full"
           files: |
-            xodos-chromium.tar.xz
-            xodos-firefox.tar.xz
-            xodos-inkscape.tar.xz
-            cursor-arm64.deb
-            xodos-audacity.tar.xz
+            wine-glibc.tar.xz
+            wine-bionic.tar.xz
+            
             🧩 **Native Apps for XoDos **
 
             ### ✅ What's New
@@ -90,7 +88,7 @@ jobs:
             ---
 
             **👥 Credits**
-            python: @xodiosx🇾🇪 • @mebabo1🇰🇷 • 
+            python: @xodiosx🇾🇪 • 
             Logos: @sabamdarif  
 
             **💬 Support**
