@@ -19,7 +19,7 @@ ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
 MANIFEST_DIR = os.path.expanduser("~/appstore/manifests")
 STRIP_COMPONENTS = 5  # Number of leading directories to strip from the archive
 TMP_EXTRACT = os.path.join(ARCHIVE_DIR, "tmp_extract")  # Temporary extraction folder
-#v1.0.7.3
+#v1.0.7.4
 # Protected system directories (never delete files directly inside these)
 PROTECTED_DIRS = [
     os.path.join(PREFIX, "lib"),
