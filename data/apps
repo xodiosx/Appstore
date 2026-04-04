@@ -9,17 +9,18 @@ import urllib.error
 import threading
 import shutil
 import subprocess
+import platform
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio
 
 # ========== Configuration ==========
-PREFIX = "/data/data/com.xodos/files/usr"
+BASE_DIR = "/data/data/com.xodos/files"          # Parent of usr/
+PREFIX = os.path.join(BASE_DIR, "usr")           # /data/data/com.xodos/files/usr
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
 MANIFEST_DIR = os.path.expanduser("~/appstore/manifests")
-STRIP_COMPONENTS = 5  # Number of leading directories to strip from the archive
-TMP_EXTRACT = os.path.join(ARCHIVE_DIR, "tmp_extract")  # Temporary extraction folder
-#v1.0.7.4
+TMP_EXTRACT = os.path.join(ARCHIVE_DIR, "tmp_extract")
+#v1.0.7.5
 # Protected system directories (never delete files directly inside these)
 PROTECTED_DIRS = [
     os.path.join(PREFIX, "lib"),
@@ -28,7 +29,7 @@ PROTECTED_DIRS = [
 
 # Update settings
 UPDATE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/main/data/apps"
-CURRENT_SCRIPT = os.path.abspath(__file__)  # Path to this running script
+CURRENT_SCRIPT = os.path.abspath(__file__)
 
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
 os.makedirs(MANIFEST_DIR, exist_ok=True)
@@ -43,11 +44,11 @@ apps = [
      "Latest Blender 5.5 3D modular"),
     ("Gimp3", "xodos-gimp3.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-gimp3.tar.xz",
      "Image manipulation and editing program"),
-     ("Inkscape", "xodos-inkscape.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-inkscape.tar.xz",
+    ("Inkscape", "xodos-inkscape.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-inkscape.tar.xz",
      "drawing and Vector graphics editor"),
     ("Chromium", "xodos-chromium.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-chromium.tar.xz",
      "Chromium internet browser"),
-     ("Firefox", "xodos-firefox.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-firefox.tar.xz",
+    ("Firefox", "xodos-firefox.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-firefox.tar.xz",
      "Firefox internet browser"),
     ("Audacity", "xodos-audacity.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-audacity.tar.xz",
      "digital audio editor and recording application"),
@@ -57,7 +58,7 @@ apps = [
      "Wine using native glibc"),
     ("python3.13+", "xodos-python3.13+.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13+.tar.xz",
      "Python 3.13 interpreter"),
-      ("clang+llvm", "xodos-clang+llvm.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
+    ("clang+llvm", "xodos-clang+llvm.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
      "clang and llvm libraries"),
 ]
 
@@ -102,57 +103,67 @@ def get_remote_file_size(url):
         pass
     return "Unknown"
 
-# ========== Update Check ==========
-def check_for_updates():
-    """Fetch remote script content and compare with current file.
-    Returns (update_available, remote_content) or (False, None) on error.
+# ========== Archive Layout Detection ==========
+def detect_archive_layout(archive_path):
+    """
+    Detect archive layout type:
+    - "full_prefix": contains data/data/com.xodos/files/usr/
+    - "flat": contains usr/ or home/ at root
+    - "unknown": anything else
     """
     try:
-        req = urllib.request.Request(UPDATE_URL, method='GET')
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            remote_content = resp.read().decode('utf-8')
-    except Exception as e:
-        print(f"Update check failed: {e}")
-        return False, None
-
-    # Read current script content
-    try:
-        with open(CURRENT_SCRIPT, 'r', encoding='utf-8') as f:
-            current_content = f.read()
-    except Exception as e:
-        print(f"Could not read current script: {e}")
-        return False, None
-
-    # Compare
-    if remote_content != current_content:
-        return True, remote_content
-    else:
-        return False, None
-
-def apply_update(remote_content, parent_window):
-    """Download new script to a temporary file and replace current one."""
-    # Write to a temporary file in the same directory
-    script_dir = os.path.dirname(CURRENT_SCRIPT)
-    temp_path = os.path.join(script_dir, "appstore_update.tmp")
-    try:
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            f.write(remote_content)
-        # Replace current script with temp file
-        os.replace(temp_path, CURRENT_SCRIPT)
-        # Make sure it's executable
-        os.chmod(CURRENT_SCRIPT, 0o755)
-    except Exception as e:
-        dialog = Gtk.MessageDialog(
-            transient_for=parent_window,
-            flags=0,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text=f"Update failed: {e}"
+        result = subprocess.run(
+            ["tar", "-tf", archive_path],
+            capture_output=True,
+            text=True,
+            check=True
         )
-        dialog.run()
-        dialog.destroy()
-        return False
-    return True
+        lines = result.stdout.splitlines()
+
+        for line in lines:
+            if line.startswith("data/data/com.xodos/files/usr/"):
+                return "full_prefix"
+
+        for line in lines:
+            if line.startswith("usr/") or line.startswith("home/"):
+                return "flat"
+
+        return "unknown"
+
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Failed to inspect archive: {e.stderr}")
+
+def check_architecture_compatibility(archive_path):
+    """
+    Optional: scan archive for architecture mismatches.
+    Returns True if compatible (or no obvious mismatch), False otherwise.
+    """
+    target_arch = platform.machine()
+    incompatible = []
+    if target_arch == "aarch64":
+        incompatible = ["x86_64", "amd64", "i386", "i686"]
+    elif target_arch == "x86_64":
+        incompatible = ["aarch64", "armv7", "armhf"]
+    elif "arm" in target_arch:
+        incompatible = ["x86_64", "amd64"]
+
+    if not incompatible:
+        return True
+
+    try:
+        result = subprocess.run(
+            ["tar", "-tf", archive_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        for line in result.stdout.splitlines():
+            for bad in incompatible:
+                if f"/{bad}/" in line or line.startswith(f"{bad}/") or f"/{bad}." in line:
+                    return False
+        return True
+    except Exception:
+        return True
 
 # ========== Core Functions ==========
 def download_file(url, dest, progress_callback):
@@ -162,108 +173,92 @@ def download_file(url, dest, progress_callback):
             GLib.idle_add(progress_callback, percent, f"Downloading... {int(percent)}%")
     urllib.request.urlretrieve(url, dest, reporthook=report)
 
-def validate_archive(archive_path):
-    """Ensure the archive contains the expected path structure."""
-    try:
-        result = subprocess.run(
-            ["tar", "-tf", archive_path],
-            capture_output=True, text=True, check=True
-        )
-        # We expect that after stripping 5 components, everything is under PREFIX.
-        # Check first few lines to see if they start with 'data/data/com.xodos/files/usr/'
-        for line in result.stdout.splitlines():
-            if line.startswith("data/data/com.xodos/files/usr/"):
-                return True
-        # If none of the lines match, the archive might be malformed.
-        raise Exception("Archive does not contain expected path prefix: data/data/com.xodos/files/usr/")
-    except subprocess.CalledProcessError as e:
-        raise Exception(f"Failed to list archive contents: {e.stderr}")
-
 def extract_archive(archive_path, app_name, progress_callback):
     """
-    Extract archive to a temporary directory, then move files atomically into PREFIX.
-    Only files that did NOT already exist are recorded in the manifest.
+    Extract archive based on detected layout.
+    - full_prefix: strip 5 components → files go into PREFIX.
+    - flat: extract as‑is → files go into BASE_DIR (so usr/ lands in BASE_DIR/usr, home/ in BASE_DIR/home, etc.)
     """
     manifest = get_manifest(app_name)
     os.makedirs(PREFIX, exist_ok=True)
+    os.makedirs(BASE_DIR, exist_ok=True)
 
-    # Validate archive structure
-    validate_archive(archive_path)
+    layout = detect_archive_layout(archive_path)
+    print(f"Detected layout: {layout}")
 
-    # Step 1: get total number of files in archive (for progress)
+    if not check_architecture_compatibility(archive_path):
+        raise Exception("Archive contains binaries for a different CPU architecture!")
+
+    # Get total file count for progress
     try:
-        list_cmd = ["tar", "-tf", archive_path]
-        result = subprocess.run(list_cmd, capture_output=True, text=True, check=True)
-        total_members = len(result.stdout.strip().split('\n')) if result.stdout else 0
+        result = subprocess.run(["tar", "-tf", archive_path], capture_output=True, text=True, check=True)
+        members = [m for m in result.stdout.strip().split('\n') if m and not m.endswith('/')]
+        total_files = len(members)
     except subprocess.CalledProcessError as e:
         raise Exception(f"Failed to list archive contents: {e.stderr}")
 
-    # Step 2: prepare temporary extraction directory
+    # Prepare temp directory
     if os.path.exists(TMP_EXTRACT):
         shutil.rmtree(TMP_EXTRACT)
     os.makedirs(TMP_EXTRACT, exist_ok=True)
 
-    # Step 3: extract archive to temporary directory (without strip-components)
+    # Extract to temp (with or without stripping)
+    if layout == "full_prefix":
+        cmd = ["tar", "-xJf", archive_path, "-C", TMP_EXTRACT, "--strip-components=5"]
+    elif layout == "flat":
+        cmd = ["tar", "-xJf", archive_path, "-C", TMP_EXTRACT]
+    else:
+        raise Exception("Unknown archive structure. Refusing to extract.")
+
     try:
-        subprocess.run(
-            ["tar", "-xJf", archive_path, "-C", TMP_EXTRACT],
-            check=True, capture_output=True, text=True
-        )
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        raise Exception(f"Extraction to temp failed: {e.stderr}")
+        raise Exception(f"Extraction failed: {e.stderr}")
 
-    # The extracted root inside temp is 'data/data/com.xodos/files/usr'
-    src_root = os.path.join(TMP_EXTRACT, "data", "data", "com.xodos", "files", "usr")
-    if not os.path.isdir(src_root):
-        raise Exception("Extracted archive does not have expected structure: 'data/data/com.xodos/files/usr' not found.")
+    src_root = TMP_EXTRACT
 
-    # Step 4: walk the extracted tree, move files, and record newly created files
+    # Walk extracted files and move to correct destination base
     extracted_paths = []
     count = 0
-    # Count total files (not directories) for progress
-    total_files = 0
+    # Count files again (in case of empty dirs etc.)
+    actual_files = 0
     for root, _, files in os.walk(src_root):
-        for f in files:
-            total_files += 1
+        actual_files += len(files)
+    if actual_files == 0:
+        actual_files = total_files  # fallback
 
     for root, _, files in os.walk(src_root):
         for f in files:
             src = os.path.join(root, f)
-            # Compute relative path from src_root
-            rel = os.path.relpath(src, src_root)
-            dest = os.path.join(PREFIX, rel)
+            rel = os.path.relpath(src, src_root)  # e.g., "usr/bin/foo" or "bin/foo"
 
-            # Ensure parent directory exists
+            # Choose destination base
+            if layout == "full_prefix":
+                # After stripping, rel is relative to usr/ (e.g., "bin/foo")
+                dest = os.path.join(PREFIX, rel)
+            else:  # flat
+                # rel starts with "usr/" or "home/" etc.
+                dest = os.path.join(BASE_DIR, rel)
+
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-
-            # Check if destination already exists BEFORE moving
             file_was_new = not os.path.exists(dest)
-
-            # Move atomically (overwrites if exists)
             os.replace(src, dest)
-
-            # Record ONLY if it did NOT exist before (i.e., this is a new file)
             if file_was_new:
                 extracted_paths.append(dest)
 
             count += 1
-            percent = (count / total_files) * 100 if total_files > 0 else 0
+            percent = (count / actual_files) * 100 if actual_files > 0 else 0
             GLib.idle_add(progress_callback, percent, f"Installing... {int(percent)}%")
 
-    # Step 5: clean up temporary directory
     shutil.rmtree(TMP_EXTRACT)
 
-    # Write manifest (only newly created files)
     with open(manifest, 'w') as f:
         for path in extracted_paths:
             f.write(path + '\n')
     GLib.idle_add(progress_callback, 100, f"Installed {len(extracted_paths)} new files")
 
 def install_deb_dependency(deb_url, deb_filename, progress_callback):
-    """Download and install a .deb package using apt (no -y flag)."""
     deb_path = os.path.join(ARCHIVE_DIR, deb_filename)
-
-    # Download if not already present
     if not os.path.exists(deb_path):
         GLib.idle_add(progress_callback, 0, f"Downloading {deb_filename}...")
         try:
@@ -271,7 +266,6 @@ def install_deb_dependency(deb_url, deb_filename, progress_callback):
         except Exception as e:
             raise Exception(f"Failed to download {deb_filename}: {e}")
 
-    # Install using apt (no -y)
     GLib.idle_add(progress_callback, 0, f"Installing {deb_filename}...")
     cmd = ['apt', 'install', deb_path]
     try:
@@ -282,58 +276,36 @@ def install_deb_dependency(deb_url, deb_filename, progress_callback):
     return True
 
 def refresh_xfce():
-    """Update Xfce4 desktop menus and icons after installation."""
-    # Update desktop database
     apps_dir = os.path.join(PREFIX, 'share', 'applications')
     if os.path.isdir(apps_dir):
-        subprocess.run(['update-desktop-database', apps_dir],
-                       stderr=subprocess.DEVNULL, check=False)
-    # Update icon cache
+        subprocess.run(['update-desktop-database', apps_dir], stderr=subprocess.DEVNULL, check=False)
     icons_dir = os.path.join(PREFIX, 'share', 'icons', 'hicolor')
     if os.path.isdir(icons_dir):
-        subprocess.run(['gtk-update-icon-cache', '-f', icons_dir],
-                       stderr=subprocess.DEVNULL, check=False)
+        subprocess.run(['gtk-update-icon-cache', '-f', icons_dir], stderr=subprocess.DEVNULL, check=False)
 
 def fix_bin_symlinks():
-    """
-    Fix symlinks in the bin directory that point to com.termux paths.
-    This replicates the behaviour of the bash script provided by the user.
-    """
     bin_dir = os.path.join(PREFIX, "bin")
     if not os.path.isdir(bin_dir):
         return
-
-    # Walk through all files in bin_dir recursively
-    for root, dirs, files in os.walk(bin_dir):
+    for root, _, files in os.walk(bin_dir):
         for name in files:
             path = os.path.join(root, name)
             if os.path.islink(path):
                 target = os.readlink(path)
                 if "com.termux" in target:
-                    # Remove the old symlink
                     os.unlink(path)
-                    # Replace com.termux with com.xodos
                     new_target = target.replace("com.termux", "com.xodos")
-                    # Recreate the symlink with the corrected target
                     os.symlink(new_target, path)
-                    # Optional: print for debugging
                     print(f"Fixed {path} -> {new_target}")
 
 def is_protected(file_path, app_name):
-    """
-    Check if a file is in a protected system directory and not inside an app‑specific subfolder.
-    Returns True if removal should be skipped.
-    """
     for protected in PROTECTED_DIRS:
         if file_path.startswith(protected):
-            # Allow removal only if the file is inside a subdirectory named after the app
             app_lower = app_name.lower()
-            # Check if the path contains e.g. /lib/gimp/ or /lib64/gimp/
             rest = file_path[len(protected):]
             if rest.startswith('/' + app_lower + '/'):
-                return False  # Not protected, it's inside app's own folder
-            else:
-                return True  # Protected: directly inside lib/ or inside other subdirs
+                return False
+            return True
     return False
 
 def install_app(app_name, archive_name, url, progress_callback, done_callback):
@@ -343,7 +315,6 @@ def install_app(app_name, archive_name, url, progress_callback, done_callback):
             download_file(url, archive_path, progress_callback)
         extract_archive(archive_path, app_name, progress_callback)
 
-        # Install any deb dependencies for this app
         if app_name in DEB_DEPS:
             for deb_url, deb_filename in DEB_DEPS[app_name]:
                 install_deb_dependency(deb_url, deb_filename, progress_callback)
@@ -361,12 +332,10 @@ def remove_app(app_name, done_callback):
     try:
         with open(manifest) as f:
             files = f.read().splitlines()
-        # Remove only files that are not in protected system directories
         for file in files:
-            if not file.startswith(PREFIX):
+            if not file.startswith(BASE_DIR):  # files could be under BASE_DIR (flat) or PREFIX (full)
                 continue
             if is_protected(file, app_name):
-                # Skip protected file
                 continue
             if os.path.isfile(file) or os.path.islink(file):
                 try:
@@ -379,7 +348,6 @@ def remove_app(app_name, done_callback):
         GLib.idle_add(done_callback, False, str(e))
 
 def post_remove_recovery(app_name, progress_callback, done_callback):
-    """After removal, install recovery packages (e.g., GTK3) if needed."""
     if app_name in POST_REMOVE_DEBS:
         try:
             for deb_url, deb_filename in POST_REMOVE_DEBS[app_name]:
@@ -390,10 +358,50 @@ def post_remove_recovery(app_name, progress_callback, done_callback):
     else:
         GLib.idle_add(done_callback, True, None)
 
+# ========== Update Check ==========
+def check_for_updates():
+    try:
+        req = urllib.request.Request(UPDATE_URL, method='GET')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            remote_content = resp.read().decode('utf-8')
+    except Exception as e:
+        print(f"Update check failed: {e}")
+        return False, None
+    try:
+        with open(CURRENT_SCRIPT, 'r', encoding='utf-8') as f:
+            current_content = f.read()
+    except Exception as e:
+        print(f"Could not read current script: {e}")
+        return False, None
+    if remote_content != current_content:
+        return True, remote_content
+    return False, None
+
+def apply_update(remote_content, parent_window):
+    script_dir = os.path.dirname(CURRENT_SCRIPT)
+    temp_path = os.path.join(script_dir, "appstore_update.tmp")
+    try:
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            f.write(remote_content)
+        os.replace(temp_path, CURRENT_SCRIPT)
+        os.chmod(CURRENT_SCRIPT, 0o755)
+    except Exception as e:
+        dialog = Gtk.MessageDialog(
+            transient_for=parent_window,
+            flags=0,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=f"Update failed: {e}"
+        )
+        dialog.run()
+        dialog.destroy()
+        return False
+    return True
+
 # ========== GTK UI ==========
 class AppStoreWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        Gtk.ApplicationWindow.__init__(self, application=app, title="XoDos App Store")
+        Gtk.ApplicationWindow.__init__(self, application=app, title="XoDos App Store v1.0.7.5")
         self.set_default_size(600, 500)
         self.set_border_width(10)
 
@@ -416,11 +424,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.status_label.set_halign(Gtk.Align.START)
         vbox.pack_start(self.status_label, False, False, 0)
 
-        # Store widgets for each app
-        self.app_widgets = {}  # app_name -> {'install_btn': btn, 'remove_btn': btn, 'size_label': label}
+        self.app_widgets = {}
         self.size_labels = {}
 
-        # Populate rows
         for name, archive, url, desc in apps:
             row = Gtk.ListBoxRow()
             vbox_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -430,11 +436,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             vbox_row.set_margin_end(5)
             row.add(vbox_row)
 
-            # Top part: logo, name, size, buttons
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             vbox_row.pack_start(hbox, False, False, 0)
 
-            # Logo with default fallback
             logo_path = os.path.expanduser(f"~/appstore/logo/{name}/logo.png")
             if os.path.isfile(logo_path):
                 image = Gtk.Image.new_from_file(logo_path)
@@ -447,54 +451,45 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             image.set_pixel_size(32)
             hbox.pack_start(image, False, False, 0)
 
-            # App name label
             label = Gtk.Label(label=name, xalign=0)
             label.set_hexpand(True)
             hbox.pack_start(label, True, True, 0)
 
-            # Size label
             size_label = Gtk.Label(label="Fetching...", xalign=0)
             size_label.set_margin_start(10)
             size_label.set_margin_end(10)
             hbox.pack_start(size_label, False, False, 0)
             self.size_labels[name] = size_label
 
-            # Install button
             install_btn = Gtk.Button(label="Install")
             install_btn.connect("clicked", self.on_install_clicked, name, archive, url)
             hbox.pack_start(install_btn, False, False, 0)
 
-            # Remove button
             remove_btn = Gtk.Button(label="Remove")
             remove_btn.connect("clicked", self.on_remove_clicked, name)
             hbox.pack_start(remove_btn, False, False, 0)
 
-            # Store widgets for later updates
             self.app_widgets[name] = {
                 'install_btn': install_btn,
                 'remove_btn': remove_btn,
                 'size_label': size_label
             }
 
-            # Description label
             desc_label = Gtk.Label(label=desc, xalign=0)
-            desc_label.set_margin_start(42)  # indent under logo area
-            desc_label.set_opacity(0.7)      # slightly faded
+            desc_label.set_margin_start(42)
+            desc_label.set_opacity(0.7)
             vbox_row.pack_start(desc_label, False, False, 0)
 
             self.listbox.add(row)
 
         self.show_all()
 
-        # Initial button states
         for name in self.app_widgets:
             self.refresh_app_state(name)
 
-        # Start background thread to fetch sizes
         threading.Thread(target=self.fetch_all_sizes, daemon=True).start()
 
     def fetch_all_sizes(self):
-        """Fetch remote sizes for all apps and update UI."""
         for name, archive, url, _ in apps:
             size_str = get_remote_file_size(url)
             GLib.idle_add(self.update_size_label, name, size_str)
@@ -505,7 +500,6 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             label.set_text(size_str)
 
     def refresh_app_state(self, app_name):
-        """Update install/remove buttons based on installation status."""
         installed = is_installed(app_name)
         widgets = self.app_widgets.get(app_name)
         if not widgets:
@@ -520,7 +514,6 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             widgets['remove_btn'].set_sensitive(False)
 
     def on_install_clicked(self, button, name, archive, url):
-        # Check dependencies (app-to-app)
         if name in deps:
             required = deps[name]
             if not is_installed(required):
@@ -549,9 +542,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.progress.set_fraction(0.0)
 
         def remove_and_recover():
-            # First remove the app
-            remove_app(name, lambda success, msg: None)  # We'll handle in a nested way
-            # Then run recovery
+            remove_app(name, lambda success, msg: None)
             post_remove_recovery(name, self._update_progress, self._on_operation_done)
 
         thread = threading.Thread(target=remove_and_recover)
@@ -559,7 +550,6 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         thread.start()
 
     def _update_progress(self, percent, message):
-        # If percent is 0, we keep the progress bar pulsing
         if percent == 0:
             self.progress.pulse()
         else:
@@ -580,12 +570,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             dialog.destroy()
         else:
             self.status_label.set_text(message)
-            # If this was an installation, refresh the desktop environment
             if "Installed" in message:
                 refresh_xfce()
-                # Also fix any symlinks pointing to com.termux
                 fix_bin_symlinks()
-        # Refresh button states for all apps
         for name in self.app_widgets:
             self.refresh_app_state(name)
         GLib.timeout_add(2000, lambda: self.progress.set_fraction(0.0) or False)
@@ -593,7 +580,6 @@ class AppStoreWindow(Gtk.ApplicationWindow):
     def _set_buttons_sensitive(self, sensitive):
         for row in self.listbox.get_children():
             for child in row.get_children():
-                # child is vbox_row
                 for sub in child.get_children():
                     if isinstance(sub, Gtk.Box):
                         for btn in sub.get_children():
@@ -609,8 +595,6 @@ class AppStoreApplication(Gtk.Application):
         if not win:
             win = AppStoreWindow(self)
         win.present()
-
-        # Check for updates after window is shown (non-blocking)
         GLib.idle_add(self._check_update_async, win)
 
     def _check_update_async(self, parent_window):
@@ -631,10 +615,8 @@ class AppStoreApplication(Gtk.Application):
         response = dialog.run()
         dialog.destroy()
         if response == Gtk.ResponseType.YES:
-            # Apply update
             success = apply_update(remote_content, parent_window)
             if success:
-                # Notify user and restart
                 restart_dialog = Gtk.MessageDialog(
                     transient_for=parent_window,
                     flags=0,
@@ -644,7 +626,6 @@ class AppStoreApplication(Gtk.Application):
                 )
                 restart_dialog.run()
                 restart_dialog.destroy()
-                # Restart the application
                 os.execv(CURRENT_SCRIPT, sys.argv)
             else:
                 error_dialog = Gtk.MessageDialog(
