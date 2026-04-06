@@ -10,17 +10,21 @@ import threading
 import shutil
 import subprocess
 import platform
+import time
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio
 
 # ========== Configuration ==========
+APPSTORE_VERSION = "1.0.7-7"                     # Central version variable
 BASE_DIR = "/data/data/com.xodos/files"          # Parent of usr/
 PREFIX = os.path.join(BASE_DIR, "usr")           # /data/data/com.xodos/files/usr
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
 MANIFEST_DIR = os.path.expanduser("~/appstore/manifests")
 TMP_EXTRACT = os.path.join(ARCHIVE_DIR, "tmp_extract")
-#v1.0.7.5
+LOCAL_LOGO_DIR = os.path.expanduser("~/appstore/logo")
+LOGO_BASE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/main/appstore/logo"
+
 # Protected system directories (never delete files directly inside these)
 PROTECTED_DIRS = [
     os.path.join(PREFIX, "lib"),
@@ -33,6 +37,7 @@ CURRENT_SCRIPT = os.path.abspath(__file__)
 
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
 os.makedirs(MANIFEST_DIR, exist_ok=True)
+os.makedirs(LOCAL_LOGO_DIR, exist_ok=True)
 
 # List of apps: (display name, archive filename, download URL, description)
 apps = [
@@ -56,6 +61,8 @@ apps = [
      "Wine using Bionic android environment"),
     ("Wine Glibc", "wine-glibc.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-glibc.tar.xz",
      "Wine using native glibc"),
+       ("Steam", "xodos-steam.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/xodos-steam.tar.xz",
+     "steam store lite client"),
     ("python3.13+", "xodos-python3.13+.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13+.tar.xz",
      "Python 3.13 interpreter"),
     ("clang+llvm", "xodos-clang+llvm.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
@@ -77,6 +84,36 @@ DEB_DEPS = {
 POST_REMOVE_DEBS = {
     "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/gtk3_aarch64.deb", "gtk3_aarch64.deb")]
 }
+
+# ========== Logo Sync Functions (Simplified) ==========
+def download_logo(app_name):
+    """
+    Download logo for given app ONLY if it doesn't exist locally.
+    Returns True if downloaded (or already existed), False if remote not available.
+    """
+    local_path = os.path.join(LOCAL_LOGO_DIR, app_name, "logo.png")
+    if os.path.exists(local_path):
+        return True  # already have it
+
+    remote_url = f"{LOGO_BASE_URL}/{app_name}/logo.png"
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+
+    try:
+        urllib.request.urlretrieve(remote_url, local_path)
+        return True
+    except Exception:
+        # Remote logo doesn't exist or network issue – ignore
+        return False
+
+def sync_all_logos(progress_callback=None):
+    """Iterate over all apps and download missing logos."""
+    for name, _, _, _ in apps:
+        if progress_callback:
+            GLib.idle_add(progress_callback, 0, f"Checking logo for {name}...")
+        success = download_logo(name)
+        if progress_callback and not success:
+            GLib.idle_add(progress_callback, 100, f"No logo for {name}, using default")
+        time.sleep(0.05)  # tiny delay
 
 # ========== Helper Functions ==========
 def get_manifest(app_name):
@@ -401,7 +438,7 @@ def apply_update(remote_content, parent_window):
 # ========== GTK UI ==========
 class AppStoreWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        Gtk.ApplicationWindow.__init__(self, application=app, title="XoDos App Store v1.0.7.5")
+        Gtk.ApplicationWindow.__init__(self, application=app, title=f"XoDos App Store v{APPSTORE_VERSION}")
         self.set_default_size(600, 500)
         self.set_border_width(10)
 
@@ -426,6 +463,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
 
         self.app_widgets = {}
         self.size_labels = {}
+        self.logo_images = {}   # map app name -> Gtk.Image widget
 
         for name, archive, url, desc in apps:
             row = Gtk.ListBoxRow()
@@ -439,17 +477,19 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             vbox_row.pack_start(hbox, False, False, 0)
 
-            logo_path = os.path.expanduser(f"~/appstore/logo/{name}/logo.png")
+            # Logo image (try local, fallback to default or missing)
+            logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
             if os.path.isfile(logo_path):
                 image = Gtk.Image.new_from_file(logo_path)
             else:
-                default_logo = os.path.expanduser("~/appstore/logo/default.png")
+                default_logo = os.path.join(LOCAL_LOGO_DIR, "default.png")
                 if os.path.isfile(default_logo):
                     image = Gtk.Image.new_from_file(default_logo)
                 else:
                     image = Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.MENU)
             image.set_pixel_size(32)
             hbox.pack_start(image, False, False, 0)
+            self.logo_images[name] = image
 
             label = Gtk.Label(label=name, xalign=0)
             label.set_hexpand(True)
@@ -487,7 +527,27 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         for name in self.app_widgets:
             self.refresh_app_state(name)
 
+        # Start background tasks
         threading.Thread(target=self.fetch_all_sizes, daemon=True).start()
+        threading.Thread(target=self.sync_logos_and_refresh, daemon=True).start()
+
+    def sync_logos_and_refresh(self):
+        """Sync missing logos in background, then update UI images."""
+        sync_all_logos(self._update_progress)
+        GLib.idle_add(self.refresh_all_logo_images)
+
+    def refresh_all_logo_images(self):
+        """Update each app's logo image from local files after sync."""
+        for name in self.logo_images:
+            logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
+            if os.path.isfile(logo_path):
+                self.logo_images[name].set_from_file(logo_path)
+            else:
+                default_logo = os.path.join(LOCAL_LOGO_DIR, "default.png")
+                if os.path.isfile(default_logo):
+                    self.logo_images[name].set_from_file(default_logo)
+                else:
+                    self.logo_images[name].set_from_icon_name("image-missing", Gtk.IconSize.MENU)
 
     def fetch_all_sizes(self):
         for name, archive, url, _ in apps:
