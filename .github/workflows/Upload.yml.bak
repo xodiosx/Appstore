@@ -31,7 +31,7 @@ jobs:
       # 🔑 Save Google Drive JSON key from secret
       - name: Save GDrive JSON Key
         run: |
-          printf '${{ secrets.GDRIVE_KEY }}' > gdrive_key.json
+          echo '${{ secrets.GDRIVE_KEY }}' > gdrive_key.json
 
       # 🔍 Check if a release for this tag already exists
       - name: Check if release exists
