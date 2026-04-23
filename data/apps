@@ -61,7 +61,7 @@ apps = [
      "Wine-10 proton with box64 using Bionic android system"),
     ("Wine Glibc", "wine-glibc.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-glibc.tar.xz",
      "Wine amd with box64 for glibc with full glibc packages and dxvk and drivers"),
-     ("Wine Fex-arm64", "wine-fex-arm64.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.7/wine-fex-arm64.tar.xz",
+     ("Wine Fex-arm64", "wine-fex-arm64.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/wine-fex-arm64.tar.xz",
      "Wine-10 proton with fexcore2601 and arm64 to run windows Apps and games"),
       
         ("Steam", "xodos-steam.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/xodos-steam.tar.xz",
