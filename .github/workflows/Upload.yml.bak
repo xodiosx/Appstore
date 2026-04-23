@@ -52,8 +52,8 @@ jobs:
       # 📥 Download files (you can toggle which ones to add)
       - name: Download Main APK
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=1ERAbRdGCc-tdJcLD3tLE4T_T6gp1fqU5" \
-            -O "xodos-steam.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=17uwpEvQG54lwni5XNtU899ktabHhWLyN" \
+            -O "xodos-wine-fex-arm64.tar.xz" || exit 1
 
       - name: Download Additional Files
         run: |
@@ -68,7 +68,7 @@ jobs:
         id: md5
         run: |
           echo "### File Checksums:" > checksums.txt
-          for f in xodos-steam.tar.xz; do
+          for f in xodos-wine-fex-arm64.tar.xz; do
             md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
           done
           echo "md5_list<<EOF" >> $GITHUB_ENV
@@ -104,7 +104,7 @@ jobs:
             Telegram: [t.me/xodemulatorr](https://t.me/xodemulatorr)  
             Discord: [discord.gg/d2ChVhPfnF](https://discord.gg/d2ChVhPfnF)
           files: |
-            xodos-steam.tar.xz
+            xodos-wine-fex-arm64.tar.xz
 
       # ♻️ Existing release → just upload new files, leave body & name untouched
       - name: Add files to existing release
@@ -115,6 +115,6 @@ jobs:
         with:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           files: |
-            xodos-steam.tar.xz
+            xodoswine-fex-arm64.tar.xz
             # Add any other newly downloaded files here
           # ❗️ No `body`, no `name` – the existing release description stays exactly as it was
