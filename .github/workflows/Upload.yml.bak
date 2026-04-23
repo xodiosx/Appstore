@@ -16,71 +16,80 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ✅ Step 1: Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ Step 2: Install Python and gdown
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip
           pip install gdown
 
-      # ✅ Step 3: Create Git Tag (after checkout)
+      # 🔍 Check if a release for this tag already exists
+      - name: Check if release exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ github.event.inputs.version_tag }}" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 🏷️ Only create and push the tag if this is a brand‑new release
       - name: Create Git Tag
+        if: steps.check_release.outputs.exists == 'false'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git tag "v${{ github.event.inputs.version_tag }}"
           git push origin "v${{ github.event.inputs.version_tag }}"
 
-      # ✅ Step 4: Download main APK file
+      # 📥 Download files (you can toggle which ones to add)
       - name: Download Main APK
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=1Dkt_Vpj5OsFxyQ9NINobnEqawmgPVhrG" \
-            -O "wine-glibc.tar.xz" || exit 1
+          gdown --fuzzy "https://drive.google.com/uc?id=1ERAbRdGCc-tdJcLD3tLE4T_T6gp1fqU5" \
+            -O "xodos-steam.tar.xz" || exit 1
 
-      # ✅ Step 5: Download additional files
       - name: Download Additional Files
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=1Dsg3YxgAh2M8hgIQR31f6jqbtSXAU1GV" -O "wine-bionic.tar.xz" || exit 1
+          # Uncomment any file you want to add this time
+          #gdown --fuzzy "https://drive.google.com/uc?id=1Dsg3YxgAh2M8hgIQR31f6jqbtSXAU1GV" -O "wine-bionic.tar.xz" || exit 1
           #gdown --fuzzy "https://drive.google.com/uc?id=16V9Du-Or8QxLdV2kNn6kFsBkNsqsTHPv" -O "xodos-firefox.tar.xz" || exit 1
           #gdown --fuzzy "https://drive.google.com/uc?id=16YLHwcWFfNky_SsLAlbxlDIoZbloLyS-" -O "xodos-audacity.tar.xz" || exit 1
           #gdown --fuzzy "https://drive.google.com/uc?id=16-PrmE1gfBgbWNtoQmX8z1j3Oyq2tvbe" -O "xodos-clang+llvm.tar.xz" || exit 1
           #wget -O cursor-arm64.deb https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
-      # ✅ Step 6: Generate MD5 checksums for all downloaded files
+
       - name: Generate MD5 Checksums
         id: md5
         run: |
           echo "### File Checksums:" > checksums.txt
-          for f in wine-bionic.tar.xz wine-glibc.tar.xz; do
+          for f in xodos-steam.tar.xz; do
             md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
           done
           echo "md5_list<<EOF" >> $GITHUB_ENV
           cat checksums.txt >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      # ✅ Step 7: Create GitHub Release and upload files
-      - name: Create GitHub Release with Files
+      # 🆕 New release → create it with the full description
+      - name: Create new release (first time)
+        if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           name: "apps-full"
-          files: |
-            wine-glibc.tar.xz
-            wine-bionic.tar.xz
-            
-            🧩 **Native Apps for XoDos **
+          body: |
+            🧩 **Native Apps for XoDos**
 
             ### ✅ What's New
-            - 
-            - 
+            - Initial upload
+            -
 
             ### 🧾 Checksums
             ${{ env.md5_list }}
@@ -93,6 +102,19 @@ jobs:
 
             **💬 Support**
             Telegram: [t.me/xodemulatorr](https://t.me/xodemulatorr)  
-            Discord: [discord.gg/d2ChVhPfnF](https://discord.gg/d2ChVhPfnF)  
+            Discord: [discord.gg/d2ChVhPfnF](https://discord.gg/d2ChVhPfnF)
+          files: |
+            xodos-steam.tar.xz
 
-            
+      # ♻️ Existing release → just upload new files, leave body & name untouched
+      - name: Add files to existing release
+        if: steps.check_release.outputs.exists == 'true'
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ github.event.inputs.version_tag }}"
+          files: |
+            xodos-steam.tar.xz
+            # Add any other newly downloaded files here
+          # ❗️ No `body`, no `name` – the existing release description stays exactly as it was
