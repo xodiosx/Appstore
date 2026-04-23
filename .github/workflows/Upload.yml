@@ -52,7 +52,7 @@ jobs:
       # 📥 Download files (you can toggle which ones to add)
       - name: Download Main APK
         run: |
-          gdown --fuzzy "https://drive.google.com/uc?id=17uwpEvQG54lwni5XNtU899ktabHhWLyN" \
+          gdown "https://drive.google.com/uc?id=17uwpEvQG54lwni5XNtU899ktabHhWLyN" \
             -O "xodos-wine-fex-arm64.tar.xz" || exit 1
 
       - name: Download Additional Files
