@@ -25,8 +25,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip
-          pip install gdown
+          sudo apt install -y python3-pip wget
+          pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+      # 🔑 Save Google Drive JSON key from secret
+      - name: Save GDrive JSON Key
+        run: |
+          printf '${{ secrets.GDRIVE_KEY }}' > gdrive_key.json
 
       # 🔍 Check if a release for this tag already exists
       - name: Check if release exists
@@ -49,33 +54,59 @@ jobs:
           git tag "v${{ github.event.inputs.version_tag }}"
           git push origin "v${{ github.event.inputs.version_tag }}"
 
-      # 📥 Download files (you can toggle which ones to add)
+      # 📥 Download main file using service account (JSON key)
       - name: Download Main APK
         run: |
-          gdown "https://drive.google.com/uc?id=1wNIysi-MZWl4zT2bHd8CgWM68DMTgugS" \
-            -O "xodos-wine-fex-arm64.tar.xz" || exit 1
+          python3 <<EOF
+          import io
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaIoBaseDownload
 
+          FILE_ID = "1wNIysi-MZWl4zT2bHd8CgWM68DMTgugS"   # ← replace with your file ID
+          OUTPUT_FILE = "xodos-wine-fex-arm64.tar.xz"
+
+          creds = service_account.Credentials.from_service_account_file("gdrive_key.json")
+          service = build('drive', 'v3', credentials=creds)
+
+          request = service.files().get_media(fileId=FILE_ID)
+          fh = io.FileIO(OUTPUT_FILE, 'wb')
+          downloader = MediaIoBaseDownload(fh, request)
+
+          done = False
+          while not done:
+              status, done = downloader.next_chunk()
+              print(f"Download {int(status.progress() * 100)}%")
+
+          print("Download complete!")
+          EOF
+
+      # 📥 Download additional files (use same Python snippet for each)
       - name: Download Additional Files
         run: |
-          # Uncomment any file you want to add this time
-          #gdown --fuzzy "https://drive.google.com/uc?id=1Dsg3YxgAh2M8hgIQR31f6jqbtSXAU1GV" -O "wine-bionic.tar.xz" || exit 1
-          #gdown --fuzzy "https://drive.google.com/uc?id=16V9Du-Or8QxLdV2kNn6kFsBkNsqsTHPv" -O "xodos-firefox.tar.xz" || exit 1
-          #gdown --fuzzy "https://drive.google.com/uc?id=16YLHwcWFfNky_SsLAlbxlDIoZbloLyS-" -O "xodos-audacity.tar.xz" || exit 1
-          #gdown --fuzzy "https://drive.google.com/uc?id=16-PrmE1gfBgbWNtoQmX8z1j3Oyq2tvbe" -O "xodos-clang+llvm.tar.xz" || exit 1
-          #wget -O cursor-arm64.deb https://api2.cursor.sh/updates/download/golden/linux-arm64-deb/cursor/2.6
+          # Example – uncomment and customize:
+          # python3 <<EOF
+          # FILE_ID = "your_file_id_here"
+          # OUTPUT_FILE = "wine-bionic.tar.xz"
+          # ... (same as above download logic) ...
+          # EOF
+          echo "No additional downloads this run."
 
+      # 🧾 Generate MD5 Checksums for all files to upload
       - name: Generate MD5 Checksums
         id: md5
         run: |
           echo "### File Checksums:" > checksums.txt
           for f in xodos-wine-fex-arm64.tar.xz; do
-            md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
+            if [ -f "$f" ]; then
+              md5sum "$f" | awk '{print "- **"$2"** → `"$1"`"}' >> checksums.txt
+            fi
           done
           echo "md5_list<<EOF" >> $GITHUB_ENV
           cat checksums.txt >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      # 🆕 New release → create it with the full description
+      # 🆕 New release → create it with full description and all files
       - name: Create new release (first time)
         if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
@@ -106,7 +137,7 @@ jobs:
           files: |
             xodos-wine-fex-arm64.tar.xz
 
-      # ♻️ Existing release → just upload new files, leave body & name untouched
+      # ♻️ Existing release → just upload new files, keep everything else
       - name: Add files to existing release
         if: steps.check_release.outputs.exists == 'true'
         uses: softprops/action-gh-release@v2
@@ -115,6 +146,6 @@ jobs:
         with:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           files: |
-            xodoswine-fex-arm64.tar.xz
+            xodos-wine-fex-arm64.tar.xz
             # Add any other newly downloaded files here
-          # ❗️ No `body`, no `name` – the existing release description stays exactly as it was
+          # ❗️ No `body`, no `name` – the existing release stays exactly as it was
