@@ -14,7 +14,7 @@ import platform
 import time
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Gio
+from gi.repository import Gtk, GLib, Gio, GdkPixbuf   # <-- added GdkPixbuf
 
 # ========== Configuration ==========
 APPSTORE_VERSION = "1.0.7-9"
@@ -38,7 +38,6 @@ os.makedirs(ARCHIVE_DIR, exist_ok=True)
 os.makedirs(MANIFEST_DIR, exist_ok=True)
 os.makedirs(LOCAL_LOGO_DIR, exist_ok=True)
 
-# List of apps: (display name, archive filename, download URL, description)
 apps = [
     ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
      "app to download beautiful wallpapers for anime characters / girls / wifus "),  
@@ -84,6 +83,27 @@ DEB_DEPS = {
 POST_REMOVE_DEBS = {
     "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/gtk3_aarch64.deb", "gtk3_aarch64.deb")]
 }
+
+# ========== Helper: create a 64x64 image from a file path ==========
+def create_logo_image(path):
+    """Return a Gtk.Image scaled to exactly 64x64 pixels, or a fallback icon."""
+    if os.path.isfile(path):
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
+            scaled = pixbuf.scale_simple(64, 64, GdkPixbuf.InterpType.BILINEAR)
+            return Gtk.Image.new_from_pixbuf(scaled)
+        except Exception:
+            pass
+    # Fallback: default.png or missing icon
+    default = os.path.join(LOCAL_LOGO_DIR, "default.png")
+    if os.path.isfile(default):
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file(default)
+            scaled = pixbuf.scale_simple(64, 64, GdkPixbuf.InterpType.BILINEAR)
+            return Gtk.Image.new_from_pixbuf(scaled)
+        except Exception:
+            pass
+    return Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.DIALOG)
 
 # ========== Logo Download (URL-encoded app names) ==========
 def _logo_url(app_name):
@@ -536,17 +556,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             vbox_row.pack_start(hbox, False, False, 0)
 
+            # Use our new scaling function
             logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
-            if os.path.isfile(logo_path):
-                image = Gtk.Image.new_from_file(logo_path)
-            else:
-                default_logo = os.path.join(LOCAL_LOGO_DIR, "default.png")
-                if os.path.isfile(default_logo):
-                    image = Gtk.Image.new_from_file(default_logo)
-                else:
-                    image = Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.MENU)
-            # Force all logos to 64x64
-            image.set_pixel_size(64)          # <-- changed from 32 to 64
+            image = create_logo_image(logo_path)   # always returns a 64x64 image
             hbox.pack_start(image, False, False, 0)
             self.logo_images[name] = image
 
@@ -594,18 +606,19 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.refresh_all_logo_images)
 
     def refresh_all_logo_images(self):
+        """Update logos, again scaled to 64x64."""
         for name in self.logo_images:
             logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
-            if os.path.isfile(logo_path):
-                self.logo_images[name].set_from_file(logo_path)
-            else:
-                default_logo = os.path.join(LOCAL_LOGO_DIR, "default.png")
-                if os.path.isfile(default_logo):
-                    self.logo_images[name].set_from_file(default_logo)
-                else:
-                    self.logo_images[name].set_from_icon_name("image-missing", Gtk.IconSize.MENU)
-            # Reapply size constraint after updating the image
-            self.logo_images[name].set_pixel_size(64)   # <-- added to keep logos at 64x64
+            # Recreate the image using the same scaling function
+            new_image = create_logo_image(logo_path)
+            # Replace the old image widget inside its parent
+            old_image = self.logo_images[name]
+            parent = old_image.get_parent()
+            if parent:
+                parent.remove(old_image)
+                parent.pack_start(new_image, False, False, 0)
+                parent.reorder_child(new_image, 0)  # keep it first
+            self.logo_images[name] = new_image
 
     def fetch_all_sizes(self):
         for name, archive, url, _ in apps:
