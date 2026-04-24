@@ -14,7 +14,7 @@ import platform
 import time
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Gio, GdkPixbuf   # <-- added GdkPixbuf
+from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 
 # ========== Configuration ==========
 APPSTORE_VERSION = "1.0.7-9"
@@ -609,15 +609,14 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         """Update logos, again scaled to 64x64."""
         for name in self.logo_images:
             logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
-            # Recreate the image using the same scaling function
             new_image = create_logo_image(logo_path)
-            # Replace the old image widget inside its parent
             old_image = self.logo_images[name]
             parent = old_image.get_parent()
             if parent:
                 parent.remove(old_image)
                 parent.pack_start(new_image, False, False, 0)
-                parent.reorder_child(new_image, 0)  # keep it first
+                parent.reorder_child(new_image, 0)
+                new_image.show()          # <-- THIS FIXES THE DISAPPEARING LOGOS
             self.logo_images[name] = new_image
 
     def fetch_all_sizes(self):
