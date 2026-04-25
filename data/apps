@@ -17,7 +17,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 
 # ========== Configuration ==========
-APPSTORE_VERSION = "1.0.7-9"
+APPSTORE_VERSION = "1.1.0-0"
 BASE_DIR = "/data/data/com.xodos/files"
 PREFIX = os.path.join(BASE_DIR, "usr")
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
@@ -38,37 +38,66 @@ os.makedirs(ARCHIVE_DIR, exist_ok=True)
 os.makedirs(MANIFEST_DIR, exist_ok=True)
 os.makedirs(LOCAL_LOGO_DIR, exist_ok=True)
 
+# ========== Categories ==========
+CATEGORIES = [
+    (0, "All Apps"),
+    (2, "Art & Design & Graphics"),
+    (3, "Games & Emulators"),
+    (4, "Coding Programming & Office"),
+    (5, "Internet & Browsers"),
+    (6, "Tools"),
+    (7, "Others"),
+]
+
+# ========== App List (name, archive, url, description, category) ==========
+# category: 2-Art, 3-Games, 4-Coding, 5-Internet, 6-Tools, 7-Others
 apps = [
-    ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
-     "app to download beautiful wallpapers for anime characters / girls / wifus "),  
-    ("Blender", "xodos-blender.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender.tar.xz",
-     "3D modeling and animation suite"),
-    ("Blender4", "xodos-blender4.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender4.tar.xz",
-     "Legacy version of Blender (4.5) 3D modular"),
-    ("Blender5", "xodos-blender5.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender5.tar.xz",
-     "Latest Blender 5.5 3D modular"),
-    ("Gimp3", "xodos-gimp3.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-gimp3.tar.xz",
-     "Image manipulation and editing program"),
-    ("Inkscape", "xodos-inkscape.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-inkscape.tar.xz",
-     "drawing and Vector graphics editor"),
-    ("Chromium", "xodos-chromium.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-chromium.tar.xz",
-     "Chromium internet browser"),
-    ("Firefox", "xodos-firefox.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-firefox.tar.xz",
-     "Firefox internet browser"),
-    ("Audacity", "xodos-audacity.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-audacity.tar.xz",
-     "digital audio editor and recording application"),
-    ("Wine Bionic", "wine-bionic.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-bionic.tar.xz",
-     "Wine-10 proton with box64 using Bionic android system"),
-    ("Wine Glibc", "wine-glibc.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-glibc.tar.xz",
-     "Wine amd with box64 for glibc with full glibc packages and dxvk and drivers"),
-    ("Wine Fex-arm64", "wine-fex-arm64.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/wine-fex-arm64.tar.xz",
-     "Wine-10 proton with fexcore2601 and arm64 to run windows Apps and games"),
-    ("Steam", "xodos-steam.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/xodos-steam.tar.xz",
-     "steam store lite client"),
-    ("python3.13+", "xodos-python3.13+.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13+.tar.xz",
-     "Python 3.13 interpreter"),
-    ("clang+llvm", "xodos-clang+llvm.tar.xz", "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
-     "clang and llvm libraries"),
+    ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
+     "app to download beautiful wallpapers for anime characters / girls / wifus", 2),
+    ("Blender", "xodos-blender.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender.tar.xz",
+     "3D modeling and animation suite", 2),
+    ("Blender4", "xodos-blender4.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender4.tar.xz",
+     "Legacy version of Blender (4.5) 3D modular", 2),
+    ("Blender5", "xodos-blender5.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender5.tar.xz",
+     "Latest Blender 5.5 3D modular", 2),
+    ("Gimp3", "xodos-gimp3.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-gimp3.tar.xz",
+     "Image manipulation and editing program", 2),
+    ("Inkscape", "xodos-inkscape.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-inkscape.tar.xz",
+     "drawing and Vector graphics editor", 2),
+    ("Chromium", "xodos-chromium.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-chromium.tar.xz",
+     "Chromium internet browser", 5),
+    ("Firefox", "xodos-firefox.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-firefox.tar.xz",
+     "Firefox internet browser", 5),
+    ("Audacity", "xodos-audacity.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.4/xodos-audacity.tar.xz",
+     "digital audio editor and recording application", 2),
+    ("Wine Bionic", "wine-bionic.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-bionic.tar.xz",
+     "Wine-10 proton with box64 using Bionic android system", 3),
+    ("Wine Glibc", "wine-glibc.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.5/wine-glibc.tar.xz",
+     "Wine amd with box64 for glibc with full glibc packages and dxvk and drivers", 3),
+    ("Wine Fex-arm64", "wine-fex-arm64.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/wine-fex-arm64.tar.xz",
+     "Wine-10 proton with fexcore2601 and arm64 to run windows Apps and games", 3),
+    ("Steam", "xodos-steam.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/xodos-steam.tar.xz",
+     "steam store lite client", 3),
+    
+    ("python3.13+", "xodos-python3.13+.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/3.13/xodos-python3.13+.tar.xz",
+     "Python 3.13 interpreter", 4),
+    ("clang+llvm", "xodos-clang+llvm.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
+     "clang and llvm libraries", 4),
 ]
 
 deps = {
@@ -145,7 +174,7 @@ def download_logo(app_name):
         return False
 
 def sync_all_logos(progress_callback=None):
-    for name, _, _, _ in apps:
+    for name, _, _, _, _ in apps:
         if progress_callback:
             GLib.idle_add(progress_callback, 0, f"Checking logo for {name}...")
         success = download_logo(name)
@@ -550,16 +579,40 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.set_default_size(600, 500)
         self.set_border_width(10)
 
+        self.operation_locked = False      # used to keep buttons insensitive during install/remove
+        self.current_category = 0          # 0 = show all
+        self.row_category = {}             # map ListBoxRow -> category
+        self.row_name = {}                 # map ListBoxRow -> app name
+
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.add(vbox)
 
+        # ---------- Header with Categories and Clean buttons ----------
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
         clean_btn = Gtk.Button.new_from_icon_name("edit-clear", Gtk.IconSize.BUTTON)
         clean_btn.set_label(" Clean")
         clean_btn.connect("clicked", self.on_clean_clicked)
+
+        # Categories popover
+        self.categories_popover = Gtk.Popover()
+        cat_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        for cat_id, cat_label in CATEGORIES:
+            cat_btn = Gtk.Button(label=cat_label, relief=Gtk.ReliefStyle.NONE)
+            cat_btn.connect("clicked", self.on_category_selected, cat_id)
+            cat_vbox.pack_start(cat_btn, False, False, 0)
+            cat_vbox.show_all()          
+        self.categories_popover.add(cat_vbox)
+
+        categories_btn = Gtk.MenuButton()
+        categories_btn.set_label("Categories")
+        categories_btn.set_popover(self.categories_popover)
+
         header_box.pack_end(clean_btn, False, False, 0)
+        header_box.pack_end(categories_btn, False, False, 0)
         vbox.pack_start(header_box, False, False, 0)
 
+        # ---------- Scrolled List ----------
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_shadow_type(Gtk.ShadowType.IN)
@@ -569,6 +622,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         scrolled.add(self.listbox)
 
+        # ---------- Progress and Status ----------
         self.progress = Gtk.ProgressBar()
         vbox.pack_start(self.progress, False, False, 0)
 
@@ -583,7 +637,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.current_operation = None
         self.current_install_info = None
 
-        for name, archive, url, desc in apps:
+        # Build UI rows
+        for name, archive, url, desc, cat in apps:
             row = Gtk.ListBoxRow()
             vbox_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
             vbox_row.set_margin_top(5)
@@ -629,16 +684,38 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             desc_label.set_opacity(0.7)
             vbox_row.pack_start(desc_label, False, False, 0)
 
+            self.row_category[row] = cat
+            self.row_name[row] = name
             self.listbox.add(row)
 
+        # Show everything, then apply initial filter (All Apps)
         self.show_all()
+        self.apply_filter(0)
 
-        for name in self.app_widgets:
-            self.refresh_app_state(name)
-
+        # Kick off background tasks
         threading.Thread(target=self.fetch_all_sizes, daemon=True).start()
         threading.Thread(target=self.sync_logos_and_refresh, daemon=True).start()
 
+    # ---------- Category Filtering ----------
+    def on_category_selected(self, button, cat_id):
+        self.current_category = cat_id
+        self.apply_filter(cat_id)
+        self.categories_popover.hide()
+
+    def apply_filter(self, cat_id):
+        """Show only rows matching cat_id; 0 means show all."""
+        for row in self.listbox.get_children():
+            row_cat = self.row_category.get(row, 0)
+            row.set_visible(cat_id == 0 or cat_id == row_cat)
+
+        # Refresh button states for now visible rows
+        for row in self.listbox.get_children():
+            if row.get_visible():
+                name = self.row_name.get(row)
+                if name:
+                    self.refresh_app_state(name)
+
+    # ---------- Logo & Size Handling ----------
     def sync_logos_and_refresh(self):
         sync_all_logos(self._update_progress)
         GLib.idle_add(self.refresh_all_logo_images)
@@ -657,7 +734,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             self.logo_images[name] = new_image
 
     def fetch_all_sizes(self):
-        for name, archive, url, _ in apps:
+        for name, archive, url, _, _ in apps:
             size_str = get_remote_file_size(url)
             GLib.idle_add(self.update_size_label, name, size_str)
 
@@ -666,11 +743,18 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         if label:
             label.set_text(size_str)
 
+    # ---------- App State & Operation Lock ----------
     def refresh_app_state(self, app_name):
-        installed = is_installed(app_name)
         widgets = self.app_widgets.get(app_name)
         if not widgets:
             return
+        # If an operation is in progress, force all buttons insensitive
+        if self.operation_locked:
+            widgets['install_btn'].set_sensitive(False)
+            widgets['remove_btn'].set_sensitive(False)
+            return
+
+        installed = is_installed(app_name)
         if installed:
             widgets['install_btn'].set_label("Installed")
             widgets['install_btn'].set_sensitive(False)
@@ -680,6 +764,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             widgets['install_btn'].set_sensitive(True)
             widgets['remove_btn'].set_sensitive(False)
 
+    # ---------- Install / Remove / Clean ----------
     def on_install_clicked(self, button, name, archive, url):
         if name in deps:
             required = deps[name]
@@ -695,7 +780,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
                 dialog.destroy()
                 return
 
-        self._set_buttons_sensitive(False)
+        self.operation_locked = True
+        self._set_all_buttons_sensitive(False)
         self.status_label.set_text(f"Installing {name}...")
         self.progress.set_fraction(0.0)
 
@@ -707,7 +793,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         thread.start()
 
     def on_remove_clicked(self, button, name):
-        self._set_buttons_sensitive(False)
+        self.operation_locked = True
+        self._set_all_buttons_sensitive(False)
         self.status_label.set_text(f"Removing {name}...")
         self.progress.set_fraction(0.0)
 
@@ -730,7 +817,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         self.status_label.set_text(message)
 
     def _on_operation_done(self, success, message):
-        self._set_buttons_sensitive(True)
+        self.operation_locked = False
+        self._set_all_buttons_sensitive(True)
+
         if not success:
             if self.current_operation == 'install':
                 dialog = Gtk.MessageDialog(
@@ -765,6 +854,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             if "Installed" in message:
                 refresh_xfce()
                 fix_bin_symlinks()
+
+        # Refresh all rows (current filter stays active)
         for name in self.app_widgets:
             self.refresh_app_state(name)
         GLib.timeout_add(2000, lambda: self.progress.set_fraction(0.0) or False)
@@ -783,7 +874,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         if response != Gtk.ResponseType.YES:
             return
 
-        self._set_buttons_sensitive(False)
+        self.operation_locked = True
+        self._set_all_buttons_sensitive(False)
         self.status_label.set_text("Cleaning...")
         self.progress.pulse()
 
@@ -792,7 +884,9 @@ class AppStoreWindow(Gtk.ApplicationWindow):
                 shutil.rmtree(d)
             os.makedirs(d, exist_ok=True)
 
-        self.refresh_app_state(None)
+        # Refresh all states (everything now uninstalled)
+        for name in self.app_widgets:
+            self.refresh_app_state(name)
         self.refresh_all_logo_images()
 
         self.status_label.set_text("Cleaned. Refreshing logos...")
@@ -804,11 +898,13 @@ class AppStoreWindow(Gtk.ApplicationWindow):
 
     def _post_clean_finish(self):
         self.refresh_all_logo_images()
-        self._set_buttons_sensitive(True)
+        self.operation_locked = False
+        self._set_all_buttons_sensitive(True)
         self.status_label.set_text("Ready")
         self.progress.set_fraction(0.0)
 
-    def _set_buttons_sensitive(self, sensitive):
+    def _set_all_buttons_sensitive(self, sensitive):
+        """Set all Install/Remove buttons to the given sensitive state, overriding locks."""
         for row in self.listbox.get_children():
             for child in row.get_children():
                 for sub in child.get_children():

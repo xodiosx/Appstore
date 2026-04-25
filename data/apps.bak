@@ -215,6 +215,7 @@ def check_architecture_compatibility(archive_path):
 
 # ========== .deb Type Detection ==========
 def detect_deb_type(deb_path):
+    """Return 'native' if package is Bionic/Termux-like, 'proot' if glibc, or None on failure."""
     try:
         ar_out = subprocess.check_output(["ar", "t", deb_path], stderr=subprocess.DEVNULL, text=True)
         data_tar = None
@@ -246,6 +247,18 @@ def detect_deb_type(deb_path):
             return "proot"
     except Exception:
         return None
+
+def get_deb_package_name(deb_path):
+    """Extract the package name from a .deb file using dpkg-deb."""
+    try:
+        result = subprocess.run(
+            ["dpkg-deb", "--show", "--showformat=${Package}", deb_path],
+            capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip()
+    except Exception:
+        # Fallback: use the filename without extension as a last resort
+        return os.path.splitext(os.path.basename(deb_path))[0].split('_')[0]
 
 # ========== Core Functions ==========
 def download_file(url, dest, progress_callback):
@@ -394,10 +407,12 @@ def install_app(app_name, archive_name, url, progress_callback, done_callback):
             if result.returncode != 0:
                 raise Exception(f"Debian installation failed:\n{result.stderr}")
 
+            # Write manifest with deb info (archive name + type)
             manifest = get_manifest(app_name)
             os.makedirs(os.path.dirname(manifest), exist_ok=True)
             with open(manifest, 'w') as f:
                 f.write(f"deb:{archive_name}\n")
+                f.write(f"type:{deb_type}\n")
 
             GLib.idle_add(progress_callback, 100, f"{app_name} Installed ✅")
             GLib.idle_add(done_callback, True, None)
@@ -423,18 +438,42 @@ def remove_app(app_name, done_callback):
 
     try:
         with open(manifest) as f:
-            first_line = f.readline().strip()
-        if first_line.startswith("deb:"):
-            archive_name = first_line[4:]
+            lines = f.readlines()
+        line_list = [line.strip() for line in lines]
+
+        # Check if it's a .deb manifest (first line starts with "deb:")
+        if line_list and line_list[0].startswith("deb:"):
+            archive_name = line_list[0][4:]           # e.g. "waifudownloader_0.2.69_aarch64.deb"
+            deb_type = None
+            for line in line_list[1:]:
+                if line.startswith("type:"):
+                    deb_type = line[5:].strip()
+                    break
+
             archive_path = os.path.join(ARCHIVE_DIR, archive_name)
-            subprocess.run(["apt", "purge", "-y", archive_path], stderr=subprocess.DEVNULL, check=False)
-            subprocess.run(["xproot", f"sudo apt purge -y {archive_path}"], stderr=subprocess.DEVNULL, check=False)
+
+            if deb_type == "native":
+                pkg_name = get_deb_package_name(archive_path)
+                # apt remove without -y
+                subprocess.run(["apt", "remove", pkg_name], check=False)
+            elif deb_type == "proot":
+                pkg_name = get_deb_package_name(archive_path)
+                # wildcard purge via xproot
+                subprocess.run(["xproot", f"sudo apt purge {pkg_name}* -y"], check=False)
+            else:
+                # Fallback – try both
+                subprocess.run(["apt", "purge", "-y", archive_path], stderr=subprocess.DEVNULL, check=False)
+                subprocess.run(["xproot", f"sudo apt purge -y {archive_path}"], stderr=subprocess.DEVNULL, check=False)
+
+            # Remove manifest only, keep the archive
             os.remove(manifest)
             GLib.idle_add(done_callback, True, f"{app_name} Removed 🧹")
             return
-    except Exception:
-        pass
+    except Exception as e:
+        GLib.idle_add(done_callback, False, str(e))
+        return
 
+    # Normal tar.xz removal (unchanged)
     try:
         with open(manifest) as f:
             files = f.read().splitlines()
@@ -556,9 +595,8 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             vbox_row.pack_start(hbox, False, False, 0)
 
-            # Use our new scaling function
             logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
-            image = create_logo_image(logo_path)   # always returns a 64x64 image
+            image = create_logo_image(logo_path)
             hbox.pack_start(image, False, False, 0)
             self.logo_images[name] = image
 
@@ -606,7 +644,6 @@ class AppStoreWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.refresh_all_logo_images)
 
     def refresh_all_logo_images(self):
-        """Update logos, again scaled to 64x64."""
         for name in self.logo_images:
             logo_path = os.path.join(LOCAL_LOGO_DIR, name, "logo.png")
             new_image = create_logo_image(logo_path)
@@ -616,7 +653,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
                 parent.remove(old_image)
                 parent.pack_start(new_image, False, False, 0)
                 parent.reorder_child(new_image, 0)
-                new_image.show()          # <-- THIS FIXES THE DISAPPEARING LOGOS
+                new_image.show()
             self.logo_images[name] = new_image
 
     def fetch_all_sizes(self):
