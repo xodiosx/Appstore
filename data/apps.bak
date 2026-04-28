@@ -55,6 +55,18 @@ apps = [
     ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb",
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
      "app to download beautiful wallpapers for anime characters / girls / wifus", 2),
+      ("PlayStation-1", "pcsx-rearmed_26_aarch64.deb",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/pcsx-rearmed_26_aarch64.deb",
+     "PlayStation 1 emulator rearmed for PS 1 games", 3),
+ ("Xbox-xemu-og", "xemu-aarch64_arm64.deb",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/xemu-aarch64_arm64.deb",
+     "Xbox og-xemu emulator for Xbox original gamees", 3),
+ ("X11-nightly", "termux-x11-nightly-1.03.01-0-all.deb",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/termux-x11-nightly-1.03.01-0-all.deb",
+     "x11 nightly package to support external termux x11 App", 6),
+
+
+
     ("Blender", "xodos-blender.tar.xz",
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-blender.tar.xz",
      "3D modeling and animation suite", 2),
