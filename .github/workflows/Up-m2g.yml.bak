@@ -48,17 +48,15 @@ jobs:
           git tag "v${{ github.event.inputs.version_tag }}"
           git push origin "v${{ github.event.inputs.version_tag }}"
 
-      # ☁️ Download files from MEGA public link (no login needed)
+      # ☁️ Download MEGA files into a clean folder
       - name: Download files from MEGA
         run: |
-          # Your public link - megatools dl handles it directly
+          mkdir mega-files
+          cd mega-files
           megatools dl "https://mega.nz/file/RxgViYzT#d9cPmW7YLDabE8d9eaewN1GOFtlBMthqqQhA-iy8xbE"
-          
-          # If the link points to a folder, uncomment this line instead:
-          # megatools dl --path ./downloads "https://mega.nz/folder/..."
 
       - name: Show downloaded files
-        run: ls -lh
+        run: ls -lh mega-files/
 
       # 🆕 New release → create with body & all files
       - name: Create new release
@@ -82,7 +80,7 @@ jobs:
             Telegram: [t.me/xodemulatorr](https://t.me/xodemulatorr)  
             Discord: [discord.gg/d2ChVhPfnF](https://discord.gg/d2ChVhPfnF)
           files: |
-            *
+            mega-files/*
 
       # ♻️ Existing release → only add files, don’t touch body/assets
       - name: Add files to existing release
@@ -93,5 +91,5 @@ jobs:
         with:
           tag_name: "v${{ github.event.inputs.version_tag }}"
           files: |
-            *
+            mega-files/*
           # No body/name → keeps existing release description untouched
