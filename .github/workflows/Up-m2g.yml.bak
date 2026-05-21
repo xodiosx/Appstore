@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir mega-files
           cd mega-files
-          megatools dl "https://mega.nz/file/RxgViYzT#d9cPmW7YLDabE8d9eaewN1GOFtlBMthqqQhA-iy8xbE"
+          megatools dl "https://mega.nz/file/dg5WgJrL#Hljn-Osb7iMLZK2R3ED75vvC-kcJN4MfDn_AvHrxCXM"
 
       - name: Show downloaded files
         run: ls -lh mega-files/
