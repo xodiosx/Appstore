@@ -113,6 +113,9 @@ apps = [
     ("clang+llvm", "xodos-clang+llvm.tar.xz",
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.3/xodos-clang+llvm.tar.xz",
      "clang and llvm libraries", 4),
+     ("BC-layer", "xod-bclayer.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/xod-bclayer.tar.xz",
+     "(Block Compression) a texture compression layer to reduce memory", 6),
 ]
 
 deps = {

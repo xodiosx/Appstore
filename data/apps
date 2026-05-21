@@ -68,6 +68,9 @@ apps = [
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/termux-x11-nightly-1.03.02-all-xodos.deb",
      "x11 nightly package for XoDos termux x11 module", 6),
 
+ ("XFCE4", "xodos-xfce4.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.7/xodos-xfce4.tar.xz",
+     "XFCE4 Desktop environment for XoDos GUI", 6),
 
 
     ("Blender", "xodos-blender.tar.xz",
