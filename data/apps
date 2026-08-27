@@ -17,7 +17,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 
 # ========== Configuration ==========
-APPSTORE_VERSION = "1.1.0-0"
+APPSTORE_VERSION = "1.1.0-1"
 BASE_DIR = "/data/data/com.xodos/files"
 PREFIX = os.path.join(BASE_DIR, "usr")
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
@@ -50,7 +50,7 @@ CATEGORIES = [
 ]
 
 # ========== App List (name, archive, url, description, category) ==========
-# category: 2-Art, 3-Games, 4-Coding, 5-Internet, 6-Tools, 7-Others
+## category: 2-Art, 3-Games, 4-Coding, 5-Internet, 6-Tools, 7-Others
 apps = [
     ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb",
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
