@@ -68,6 +68,9 @@ apps = [
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/termux-x11-nightly-1.03.02-all-xodos.deb",
      "x11 nightly package for XoDos termux x11 module", 6),
 
+ ("XFCE4", "xodos-xfce4.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.7/xodos-xfce4.tar.xz",
+     "XFCE4 Desktop environment for XoDos GUI", 6),
 
 
     ("Blender", "xodos-blender.tar.xz",
@@ -131,6 +134,31 @@ POST_REMOVE_DEBS = {
     "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/gtk3_aarch64.deb", "gtk3_aarch64.deb")]
 }
 
+# ========== Minimum TERMUX_VERSION required for certain apps ==========
+# Add entries only for apps that need a newer environment version.
+MAX_APP_VERSION = {
+   # "WaifuDownloader": "1.0.8",     # maximum requirement
+   # "PlayStation-1": "1.0.8",
+   # "Xbox-xemu-og": "1.0.8",
+   # "X11-nightly": "1.0.8",
+   # "X11-XoDos": "1.0.8",
+    "XFCE4": "1.0.8",
+    "Blender": "1.0.8",
+    "Blender4": "1.0.8",
+    "Blender5": "1.0.8",
+    "Gimp3": "1.0.8",
+   # "Inkscape": "1.0.8",
+    "Chromium": "1.0.8",
+    "Firefox": "1.0.8",
+    "Audacity": "1.0.8",
+   # "Wine Bionic": "1.0.8",
+   # "Wine Glibc": "1.0.8",
+   # "Wine Fex-arm64": "1.0.8",
+   # "Steam": "1.0.8",
+    "python3.13+": "1.0.8",
+    "clang+llvm": "1.0.8",
+   # "BC-layer": "1.0.8",
+}
 # ========== Helper: create a 64x64 image from a file path ==========
 def create_logo_image(path):
     """Return a Gtk.Image scaled to exactly 64x64 pixels, or a fallback icon."""
@@ -223,6 +251,20 @@ def get_remote_file_size(url):
     except Exception:
         pass
     return "Unknown"
+
+# ========== Version Comparison Helpers ==========
+def _version_tuple(v):
+    """Convert a version string like '1.0.9' to a tuple of ints for comparison."""
+    parts = []
+    for p in str(v).split('.'):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            parts.append(0)  # non‑numeric part treated as 0
+    return tuple(parts)
+
+def is_newer_version(required, current):
+    return _version_tuple(required) > _version_tuple(current)
 
 # ========== Archive Layout Detection (for .tar.xz) ==========
 def detect_archive_layout(archive_path):
@@ -793,6 +835,22 @@ class AppStoreWindow(Gtk.ApplicationWindow):
                     message_type=Gtk.MessageType.ERROR,
                     buttons=Gtk.ButtonsType.OK,
                     text=f"{name} requires {required} to be installed first."
+                )
+                dialog.run()
+                dialog.destroy()
+                return
+
+        # ---------- Version compatibility check ----------
+        required_version = MAX_APP_VERSION.get(name)
+        if required_version:
+            current_version = os.environ.get('TERMUX_VERSION', '0')  # default to 0 if unset
+            if is_newer_version(current_version, required_version): 
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=f"This app is for version {required_version} not compatible with This app version ({current_version})."
                 )
                 dialog.run()
                 dialog.destroy()
