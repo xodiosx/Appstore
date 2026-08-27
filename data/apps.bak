@@ -31,7 +31,7 @@ PROTECTED_DIRS = [
     os.path.join(PREFIX, "lib64"),
 ]
 
-UPDATE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/main/data/apps"
+UPDATE_URL = "https://raw.githubusercontent.com/xodiosx/Appstore/refs/heads/main/data/apps"
 CURRENT_SCRIPT = os.path.abspath(__file__)
 
 os.makedirs(ARCHIVE_DIR, exist_ok=True)

@@ -17,7 +17,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 
 # ========== Configuration ==========
-APPSTORE_VERSION = "1.1.0-1"
+APPSTORE_VERSION = "1.1.0-2"
 BASE_DIR = "/data/data/com.xodos/files"
 PREFIX = os.path.join(BASE_DIR, "usr")
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
