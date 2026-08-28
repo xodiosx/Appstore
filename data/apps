@@ -52,6 +52,9 @@ CATEGORIES = [
 # ========== App List (name, archive, url, description, category) ==========
 ## category: 2-Art, 3-Games, 4-Coding, 5-Internet, 6-Tools, 7-Others
 apps = [
+    ("fix", "fix.1.0.tar.xz",
+     "https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/fix.1.0.tar.xz",
+     " fix package to fix XoDos issues", 6),
     ("WaifuDownloader", "waifudownloader_0.2.69_aarch64.deb",
      "https://github.com/xodiosx/Appstore/releases/download/v1.0.6/waifudownloader_0.2.69_aarch64.deb",
      "app to download beautiful wallpapers for anime characters / girls / wifus", 2),
