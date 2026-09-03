@@ -17,7 +17,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 
 # ========== Configuration ==========
-APPSTORE_VERSION = "1.1.0-2"
+APPSTORE_VERSION = "1.1.0-3"
 BASE_DIR = "/data/data/com.xodos/files"
 PREFIX = os.path.join(BASE_DIR, "usr")
 ARCHIVE_DIR = os.path.expanduser("~/appstore/archives")
@@ -131,6 +131,7 @@ deps = {
 
 DEB_DEPS = {
     "Blender": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/libheif_aarch64.deb", "libheif_aarch64.deb")]
+    "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/json-c_aarch64.deb", "json-c_aarch64.deb")]
 }
 
 POST_REMOVE_DEBS = {
@@ -149,11 +150,11 @@ MAX_APP_VERSION = {
     "Blender": "1.0.8",
     "Blender4": "1.0.8",
     "Blender5": "1.0.8",
-    "Gimp3": "1.0.8",
+   # "Gimp3": "1.0.8",
    # "Inkscape": "1.0.8",
-    "Chromium": "1.0.8",
-    "Firefox": "1.0.8",
-    "Audacity": "1.0.8",
+   # "Chromium": "1.0.8",
+   # "Firefox": "1.0.8",
+   # "Audacity": "1.0.8",
    # "Wine Bionic": "1.0.8",
    # "Wine Glibc": "1.0.8",
    # "Wine Fex-arm64": "1.0.8",
@@ -453,18 +454,39 @@ def refresh_xfce():
         subprocess.run(['gtk-update-icon-cache', '-f', icons_dir], stderr=subprocess.DEVNULL, check=False)
 
 def fix_bin_symlinks():
-    bin_dir = os.path.join(PREFIX, "bin")
-    if not os.path.isdir(bin_dir):
-        return
-    for root, _, files in os.walk(bin_dir):
-        for name in files:
-            path = os.path.join(root, name)
-            if os.path.islink(path):
-                target = os.readlink(path)
-                if "com.termux" in target:
-                    os.unlink(path)
-                    new_target = target.replace("com.termux", "com.xodos")
-                    os.symlink(new_target, path)
+    """
+    Fix Termux symlinks in $PREFIX/bin by running the provided bash script.
+    If that fails, fall back to the 'fixln' command.
+    """
+    bash_script = r'''#!/data/data//com.xodos/files/usr/bin/bash
+BIN_DIR="/data/data/com.xodos/files/usr/bin"
+
+cd "$BIN_DIR"
+
+find . -type l | while read -r link; do
+    target=$(readlink "$link")
+    if [[ "$target" == *"/com.termux/"* ]]; then
+        echo "Fixing $link -> $target"
+        rm "$link"
+        new_target="${target/com.termux//com.xodos}"
+        ln -s "$new_target" "$link"
+    fi
+done
+
+echo "All Termux symlinks in $BIN_DIR fixed!"
+'''
+    try:
+        result = subprocess.run(["bash", "-c", bash_script], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            print("Bash symlink fix script executed successfully.")
+        else:
+            print(f"Bash symlink fix script failed with code {result.returncode}: {result.stderr}")
+            print("Falling back to 'fixln' command...")
+            subprocess.run(["fixln"], check=False)
+    except Exception as e:
+        print(f"Error running bash symlink fix: {e}")
+        print("Falling back to 'fixln' command...")
+        subprocess.run(["fixln"], check=False)
 
 def is_protected(file_path, app_name):
     for protected in PROTECTED_DIRS:
@@ -593,7 +615,7 @@ def post_remove_recovery(app_name, progress_callback, done_callback):
         except Exception as e:
             GLib.idle_add(done_callback, False, str(e))
     else:
-        GLib.idle_add(done_callback, True, None)
+        GLib.idle_add(done_callback, True, f"{app_name} Removed 🧹")  # fixed: no None
 
 # ========== Update Check ==========
 def check_for_updates():
@@ -932,6 +954,7 @@ class AppStoreWindow(Gtk.ApplicationWindow):
             self.status_label.set_text(message)
             if "Installed" in message:
                 refresh_xfce()
+                # Run our symlink fixing function (bash script with fallback)
                 fix_bin_symlinks()
 
         # Refresh all rows (current filter stays active)
