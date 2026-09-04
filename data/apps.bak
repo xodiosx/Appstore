@@ -130,7 +130,7 @@ deps = {
 }
 
 DEB_DEPS = {
-    "Blender": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/libheif_aarch64.deb", "libheif_aarch64.deb")]
+    "Blender": [("https://github.com/xodiosx/Appstore/releases/download/1.0.0/libheif_aarch64.deb", "libheif_aarch64.deb")],
     "Gimp3": [("https://github.com/xodiosx/Appstore/releases/download/v1.0.2.d/json-c_aarch64.deb", "json-c_aarch64.deb")]
 }
 

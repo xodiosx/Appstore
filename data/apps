@@ -529,7 +529,7 @@ def install_app(app_name, archive_name, url, progress_callback, done_callback):
                 f.write(f"type:{deb_type}\n")
 
             GLib.idle_add(progress_callback, 100, f"{app_name} Installed ✅")
-            GLib.idle_add(done_callback, True, None)
+            GLib.idle_add(done_callback, True, f"{app_name} Installed ✅")
             return
 
         extract_archive(archive_path, app_name, progress_callback)
@@ -539,7 +539,7 @@ def install_app(app_name, archive_name, url, progress_callback, done_callback):
                 install_deb_dependency(deb_url, deb_filename, progress_callback)
 
         GLib.idle_add(progress_callback, 100, f"{app_name} Installed ✅")
-        GLib.idle_add(done_callback, True, None)
+        GLib.idle_add(done_callback, True, f"{app_name} Installed ✅")
 
     except Exception as e:
         GLib.idle_add(done_callback, False, str(e))
