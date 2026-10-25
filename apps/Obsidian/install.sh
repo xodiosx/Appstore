@@ -1,7 +1,7 @@
 #!/data/data//com.xodos/files/usr/bin/bash
 
 supported_arch="arm64"
-version="v1.14.4"
+version="v1.14.5"
 app_type="distro"
 supported_distro="all"
 # working_dir="${distro_path}/opt/AppImageLauncher"
